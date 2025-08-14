@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Header from './Header'
 import Footer from './Footer'
+import Breadcrumb from './Breadcrumb'
 import { CartProvider } from '../context/CartContext'
 
 const DashboardLayout = ({ dealerInfo, onLogout }) => {
@@ -51,8 +52,9 @@ const DashboardLayout = ({ dealerInfo, onLogout }) => {
           onLogout={onLogout}
           currentPage={currentPage}
         />
+        <Breadcrumb />
         <main className="main-content">
-          <div key={location.pathname} className="relative w-full min-h-[calc(100vh-80px)] pb-20 md:pb-0 animate-fade-in-up">
+          <div key={location.pathname} className="relative w-full min-h-[calc(100vh-140px)] pb-20 md:pb-0 animate-fade-in-up">
             <Outlet />
           </div>
         </main>

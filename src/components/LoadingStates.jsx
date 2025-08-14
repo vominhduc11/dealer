@@ -16,8 +16,8 @@ export const SkeletonCard = () => (
   </div>
 )
 
-// Loading Spinner
-export const LoadingSpinner = ({ size = 'md', className = '' }) => {
+// Enhanced Loading Spinner with brand colors
+export const LoadingSpinner = ({ size = 'md', color = 'primary', className = '' }) => {
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-6 h-6',
@@ -25,22 +25,43 @@ export const LoadingSpinner = ({ size = 'md', className = '' }) => {
     xl: 'w-12 h-12'
   }
 
+  const colorClasses = {
+    primary: 'border-primary-200 dark:border-primary-800 border-t-primary-600 dark:border-t-primary-400',
+    brand: 'border-brand-200 dark:border-brand-800 border-t-brand-600 dark:border-t-brand-400',
+    white: 'border-white/30 border-t-white',
+    current: 'border-current border-r-transparent'
+  }
+
   return (
-    <div className={`inline-block animate-spin rounded-full border-2 border-solid border-current border-r-transparent ${sizeClasses[size]} ${className}`}>
+    <div 
+      className={`inline-block animate-spin rounded-full border-2 ${sizeClasses[size]} ${colorClasses[color]} ${className}`}
+      role="status"
+      aria-label="Loading"
+    >
       <span className="sr-only">Loading...</span>
     </div>
   )
 }
 
-// Full Page Loading
-export const PageLoading = ({ message = 'Đang tải...' }) => (
-  <div className="fixed inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
-    <div className="text-center">
-      <LoadingSpinner size="xl" className="text-primary-500 mb-4" />
-      <p className="text-slate-600 dark:text-slate-400 text-lg">{message}</p>
+// Enhanced Page Loading with brand identity
+export const PageLoading = ({ message = 'Đang tải...', show = true }) => {
+  if (!show) return null
+
+  return (
+    <div className="fixed inset-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div className="text-center space-y-6 px-4">
+        <div className="relative">
+          <LoadingSpinner size="xl" color="brand" />
+          <div className="absolute -inset-4 rounded-full border-2 border-brand-200 dark:border-brand-800 animate-ping opacity-75"></div>
+        </div>
+        <div className="space-y-2">
+          <div className="text-2xl font-bold text-brand-600 dark:text-brand-400">🎵 TuneZone</div>
+          <p className="text-slate-600 dark:text-slate-400 text-lg font-medium">{message}</p>
+        </div>
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 // Button Loading State
 export const LoadingButton = ({ 
