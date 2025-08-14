@@ -1,15 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import './App.css'
-import LoginPage from './components/LoginPage'
+import LoginModal from './components/LoginModal'
 import DashboardLayout from './components/DashboardLayout'
-import ProductsPage from './pages/ProductsPage'
-import ProductDetailPage from './pages/ProductDetailPage'
-import CartPage from './pages/CartPage'
-import CheckoutPage from './pages/CheckoutPage'
-import PaymentCompletePage from './pages/PaymentCompletePage'
-import QRPaymentPage from './pages/QRPaymentPage'
-import WarrantyPage from './pages/WarrantyPage'
+
+// Lazy load pages for better performance
+const ProductsPage = lazy(() => import('./pages/ProductsPage'))
+const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
+const CartPage = lazy(() => import('./pages/CartPage'))
+const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
+const PaymentCompletePage = lazy(() => import('./pages/PaymentCompletePage'))
+const QRPaymentPage = lazy(() => import('./pages/QRPaymentPage'))
+const WarrantyPage = lazy(() => import('./pages/WarrantyPage'))
+
+// Import new components and utilities
+import { ErrorBoundary } from './components/ErrorHandling'
+import { SkipLink } from './components/AccessibleComponents'
+import { initPerformanceMonitoring, cleanupPerformanceMonitoring } from './utils/performance'
+import { initAccessibility } from './utils/accessibility'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -29,6 +36,17 @@ function App() {
       left: 0,
       behavior: 'instant'
     })
+
+    // Initialize performance monitoring
+    initPerformanceMonitoring()
+    
+    // Initialize accessibility features
+    initAccessibility()
+
+    // Cleanup function
+    return () => {
+      cleanupPerformanceMonitoring()
+    }
   }, [])
 
   const handleLogin = (loginData) => {
@@ -44,26 +62,58 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
-        {!isLoggedIn ? (
-          <LoginPage onLogin={handleLogin} />
-        ) : (
-          <Routes>
-            <Route path="/" element={<DashboardLayout dealerInfo={dealerInfo} onLogout={handleLogout} />}>
-              <Route index element={<Navigate to="/products" replace />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="products/:id" element={<ProductDetailPage />} />
-              <Route path="cart" element={<CartPage />} />
-              <Route path="checkout" element={<CheckoutPage />} />
-              <Route path="payment-complete" element={<PaymentCompletePage />} />
-              <Route path="qr-payment" element={<QRPaymentPage />} />
-              <Route path="warranty" element={<WarrantyPage />} />
-            </Route>
-          </Routes>
-        )}
-      </div>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+          <div className="app">
+            <SkipLink />
+            
+            <Routes>
+              <Route path="/" element={<DashboardLayout dealerInfo={dealerInfo} onLogout={handleLogout} />}>
+                <Route index element={<Navigate to="/products" replace />} />
+                <Route path="products" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <ProductsPage />
+                  </Suspense>
+                } />
+                <Route path="products/:id" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <ProductDetailPage />
+                  </Suspense>
+                } />
+                <Route path="cart" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <CartPage />
+                  </Suspense>
+                } />
+                <Route path="checkout" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <CheckoutPage />
+                  </Suspense>
+                } />
+                <Route path="payment-complete" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <PaymentCompletePage />
+                  </Suspense>
+                } />
+                <Route path="qr-payment" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <QRPaymentPage />
+                  </Suspense>
+                } />
+                <Route path="warranty" element={
+                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                    <WarrantyPage />
+                  </Suspense>
+                } />
+              </Route>
+            </Routes>
+            
+            {/* Login Modal - shows when not logged in */}
+            <LoginModal isOpen={!isLoggedIn} onLogin={handleLogin} />
+            
+          </div>
+        </Router>
+    </ErrorBoundary>
   )
 }
 

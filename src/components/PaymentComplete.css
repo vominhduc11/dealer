@@ -1,25 +1,13 @@
 .payment-complete-page {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-  min-height: 80vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @apply p-5 max-w-3xl mx-auto min-h-[80vh] flex items-center justify-center;
 }
 
 .complete-container {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  width: 100%;
-  text-align: center;
+  @apply bg-white dark:bg-slate-800 rounded-2xl shadow-2xl dark:shadow-slate-900/50 overflow-hidden w-full text-center transition-colors duration-300;
 }
 
 .success-animation {
-  padding: 40px 20px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  @apply py-10 px-5 pb-5 bg-gradient-to-br from-primary-500 to-primary-700;
 }
 
 .checkmark-container {
@@ -133,14 +121,14 @@
 .success-content h2 {
   margin: 0 0 15px 0;
   font-size: 2rem;
-  color: #333;
+  color: var(--text-primary);
   animation: fadeInUp 0.6s ease-out 0.3s both;
 }
 
 .success-message {
   margin: 0 0 30px 0;
   font-size: 16px;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.6;
   animation: fadeInUp 0.6s ease-out 0.4s both;
 }
@@ -151,17 +139,18 @@
 }
 
 .info-card {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   padding: 25px;
-  border: 1px solid #e1e5e9;
+  border: 1px solid var(--border-color);
   text-align: left;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .info-card h3 {
   margin: 0 0 20px 0;
   font-size: 1.3rem;
-  color: #333;
+  color: var(--text-primary);
   text-align: center;
 }
 
@@ -174,12 +163,12 @@
 }
 
 .info-row span:first-child {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .info-row span:last-child {
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .order-number {
@@ -224,7 +213,7 @@
   gap: 15px;
   align-items: flex-start;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 12px;
   border-left: 4px solid #667eea;
   transition: all 0.3s;
@@ -244,13 +233,13 @@
 .step-content h4 {
   margin: 0 0 8px 0;
   font-size: 1rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .step-content p {
   margin: 0;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -262,7 +251,7 @@
 .contact-info h3 {
   margin: 0 0 20px 0;
   font-size: 1.3rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .contact-methods {
@@ -277,9 +266,10 @@
   gap: 12px;
   align-items: flex-start;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e1e5e9;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .contact-icon {
@@ -290,14 +280,14 @@
 .contact-item strong {
   display: block;
   margin-bottom: 4px;
-  color: #333;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .contact-item p {
   margin: 0;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .action-buttons {

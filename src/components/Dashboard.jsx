@@ -7,7 +7,6 @@ import Checkout from './Checkout'
 import PaymentComplete from './PaymentComplete'
 import QRPayment from './QRPayment'
 import WarrantyRegistration from './WarrantyRegistration'
-import './Dashboard.css'
 
 const Dashboard = ({ dealerInfo, onLogout }) => {
   const [currentPage, setCurrentPage] = useState('products')
@@ -88,10 +87,10 @@ const Dashboard = ({ dealerInfo, onLogout }) => {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'products':
-        return <div className="page-transition fade-in-up"><ProductList onProductClick={(product) => handleNavigation('product-detail', product)} /></div>
+        return <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up"><ProductList onProductClick={(product) => handleNavigation('product-detail', product)} /></div>
       case 'product-detail':
         return (
-          <div className="page-transition fade-in-up">
+          <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up">
             <ProductDetail
               product={selectedProduct}
               onBack={() => handleNavigation('products')}
@@ -101,7 +100,7 @@ const Dashboard = ({ dealerInfo, onLogout }) => {
         )
       case 'cart':
         return (
-          <div className="page-transition fade-in-up">
+          <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up">
             <Cart
               cart={cart}
               onUpdateItem={updateCartItem}
@@ -113,7 +112,7 @@ const Dashboard = ({ dealerInfo, onLogout }) => {
         )
       case 'checkout':
         return (
-          <div className="page-transition fade-in-up">
+          <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up">
             <Checkout
               cart={cart}
               totalAmount={getTotalAmount()}
@@ -127,13 +126,13 @@ const Dashboard = ({ dealerInfo, onLogout }) => {
         )
       case 'payment-complete':
         return (
-          <div className="page-transition fade-in-up">
+          <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up">
             <PaymentComplete onBackToProducts={() => handleNavigation('products')} />
           </div>
         )
       case 'qr-payment':
         return (
-          <div className="page-transition fade-in-up">
+          <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up">
             <QRPayment
               orderData={orderData}
               onPaymentComplete={() => {
@@ -144,14 +143,14 @@ const Dashboard = ({ dealerInfo, onLogout }) => {
           </div>
         )
       case 'warranty':
-        return <div className="page-transition fade-in-up"><WarrantyRegistration /></div>
+        return <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up"><WarrantyRegistration /></div>
       default:
-        return <div className="page-transition fade-in-up"><ProductList onProductClick={(product) => handleNavigation('product-detail', product)} /></div>
+        return <div className="relative w-full min-h-[calc(100vh-80px)] animate-fade-in-up"><ProductList onProductClick={(product) => handleNavigation('product-detail', product)} /></div>
     }
   }
 
   return (
-    <div className="dashboard">
+    <div className="bg-slate-50 dark:bg-slate-900 w-full relative transition-colors duration-300">
       <Header
         dealerInfo={dealerInfo}
         onLogout={onLogout}

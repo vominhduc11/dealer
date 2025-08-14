@@ -1,22 +1,32 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Header from './Header'
+import Footer from './Footer'
+import Breadcrumb from './Breadcrumb'
 import { CartProvider } from '../context/CartContext'
-import './Dashboard.css'
 
 const DashboardLayout = ({ dealerInfo, onLogout }) => {
   const location = useLocation()
   
-  // Get current page from pathname
+  // Get current page from pathname for header active state
   const getCurrentPage = () => {
     const path = location.pathname
-    if (path.includes('/products/')) return 'product-detail'
-    if (path === '/products') return 'products'
-    if (path === '/cart') return 'cart'
-    if (path === '/checkout') return 'checkout'
-    if (path === '/payment-complete') return 'payment-complete'
-    if (path === '/qr-payment') return 'qr-payment'
-    if (path === '/warranty') return 'warranty'
+    
+    // Products section (includes product list and detail)
+    if (path.startsWith('/products')) return 'products'
+    
+    // Cart section (includes cart, checkout, payment flows)
+    if (path.startsWith('/cart') || 
+        path.startsWith('/checkout') || 
+        path.startsWith('/payment-complete') || 
+        path.startsWith('/qr-payment')) {
+      return 'cart'
+    }
+    
+    // Warranty section
+    if (path.startsWith('/warranty')) return 'warranty'
+    
+    // Default to products
     return 'products'
   }
 
@@ -36,17 +46,19 @@ const DashboardLayout = ({ dealerInfo, onLogout }) => {
 
   return (
     <CartProvider>
-      <div className="dashboard">
+      <div className="bg-slate-50 dark:bg-slate-900 w-full relative transition-colors duration-300">
         <Header
           dealerInfo={dealerInfo}
           onLogout={onLogout}
           currentPage={currentPage}
         />
+        <Breadcrumb />
         <main className="main-content">
-          <div key={location.pathname} className="page-transition fade-in-up">
+          <div key={location.pathname} className="relative w-full min-h-[calc(100vh-140px)] pb-20 md:pb-0 animate-fade-in-up">
             <Outlet />
           </div>
         </main>
+        <Footer />
       </div>
     </CartProvider>
   )
