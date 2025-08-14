@@ -1,29 +1,17 @@
 .warranty-page {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
+  @apply p-4 sm:p-5 md:p-6 lg:p-8 xl:p-10 2xl:p-12 3xl:p-16 4xl:p-20 5xl:p-24 max-w-3xl lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl 3xl:max-w-7xl 4xl:max-w-screen-4xl 5xl:max-w-screen-5xl mx-auto w-full pt-[90px] xl:pt-[100px] 2xl:pt-[110px] 3xl:pt-[120px] 4xl:pt-[140px] 5xl:pt-[160px];
 }
 
 .warranty-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  @apply bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 overflow-hidden transition-colors duration-300;
 }
 
 .warranty-header {
-  padding: 30px;
-  border-bottom: 1px solid #e1e5e9;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  text-align: center;
+  @apply p-6 md:p-8 border-b border-slate-200 dark:border-slate-600 bg-gradient-to-br from-primary-500 to-primary-700 text-white text-center transition-colors duration-300;
 }
 
 .warranty-header h2 {
-  margin: 0 0 10px 0;
-  font-size: 1.8rem;
+  @apply m-0 mb-2.5 text-xl md:text-2xl font-semibold;
 }
 
 .warranty-header p {
@@ -34,62 +22,47 @@
 }
 
 .warranty-form {
-  padding: 30px;
+  @apply p-4 sm:p-6 md:p-8;
 }
 
 .form-section {
-  margin-bottom: 40px;
+  @apply mb-6 md:mb-8 lg:mb-10;
 }
 
 .form-section h3 {
-  margin: 0 0 25px 0;
-  color: #333;
-  font-size: 1.3rem;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #667eea;
+  @apply m-0 mb-6 text-slate-900 dark:text-slate-100 text-xl font-semibold pb-2.5 border-b-2 border-primary-500;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  @apply mb-4 md:mb-5;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 6px;
-  color: #333;
-  font-weight: 500;
-  font-size: 14px;
+  @apply block mb-1.5 text-slate-900 dark:text-slate-100 font-medium text-sm;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-  width: 100%;
-  padding: 12px 15px;
-  border: 2px solid #e1e5e9;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 0.3s;
-  box-sizing: border-box;
+  @apply w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-lg text-base transition-colors duration-300 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
-  outline: none;
-  border-color: #667eea;
+  @apply outline-none border-primary-500 ring-2 ring-primary-500/20;
 }
 
 .form-group input.error,
 .form-group select.error,
 .form-group textarea.error {
-  border-color: #dc3545;
+  @apply border-red-500;
 }
 
 .form-group input:disabled,
 .form-group select:disabled,
 .form-group textarea:disabled {
-  background-color: #f5f5f5;
+  background-color: var(--bg-secondary);
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -100,16 +73,11 @@
 }
 
 .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6;
 }
 
 .error-text {
-  color: #dc3545;
-  font-size: 12px;
-  margin-top: 4px;
-  display: block;
+  @apply text-red-500 text-xs mt-1 block;
 }
 
 .warranty-preview {
@@ -117,15 +85,16 @@
 }
 
 .preview-card {
-  background: #f8f9fa;
-  border: 1px solid #e1e5e9;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .preview-card h4 {
   margin: 0 0 15px 0;
-  color: #333;
+  color: var(--text-primary);
   font-size: 1.1rem;
 }
 
@@ -138,12 +107,12 @@
 }
 
 .preview-row span:first-child {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .preview-row span:last-child {
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .expiry-highlight {
@@ -238,24 +207,25 @@
 
 .success-result h2 {
   margin: 0 0 30px 0;
-  color: #333;
+  color: var(--text-primary);
   font-size: 1.8rem;
   animation: fadeInUp 0.6s ease-out 0.2s both;
 }
 
 .warranty-card {
-  background: #f8f9fa;
-  border: 1px solid #e1e5e9;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 30px;
   text-align: left;
   animation: fadeInUp 0.6s ease-out 0.3s both;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .warranty-card h3 {
   margin: 0 0 20px 0;
-  color: #333;
+  color: var(--text-primary);
   font-size: 1.3rem;
   text-align: center;
 }
@@ -271,8 +241,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #e1e5e9;
+  border-bottom: 1px solid var(--border-color);
   font-size: 15px;
+  transition: border-color 0.3s;
 }
 
 .detail-row:last-child {
@@ -280,13 +251,13 @@
 }
 
 .detail-row span:first-child {
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .detail-row span:last-child {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .warranty-code {
@@ -390,32 +361,25 @@
   }
 }
 
+/* Mobile responsive improvements - form-row handled by Tailwind classes */
 @media (max-width: 768px) {
   .warranty-page {
-    padding: 15px;
+    @apply p-4;
   }
   
   .warranty-form {
-    padding: 20px;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr;
+    @apply p-4;
   }
   
   .success-actions {
-    flex-direction: column;
+    @apply flex-col gap-3;
   }
   
   .btn {
-    width: 100%;
-  }
-  
-  .warranty-header {
-    padding: 20px;
+    @apply w-full;
   }
   
   .warranty-header h2 {
-    font-size: 1.5rem;
+    @apply text-xl;
   }
 }

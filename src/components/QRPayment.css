@@ -1,22 +1,13 @@
 .qr-payment-page {
-  padding: 20px;
-  max-width: 1000px;
-  margin: 0 auto;
+  @apply p-5 max-w-4xl mx-auto;
 }
 
 .qr-payment-container {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  @apply bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-slate-900/50 overflow-hidden transition-colors duration-300;
 }
 
 .payment-header {
-  padding: 30px;
-  border-bottom: 1px solid #e1e5e9;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  text-align: center;
+  @apply p-6 md:p-8 border-b border-slate-200 dark:border-slate-600 bg-gradient-to-br from-primary-500 to-primary-700 text-white text-center transition-colors duration-300;
 }
 
 .payment-header h2 {
@@ -76,10 +67,11 @@
 .qr-code-container {
   position: relative;
   padding: 20px;
-  background: white;
-  border: 2px solid #e1e5e9;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .qr-code-image {
@@ -123,13 +115,13 @@
 
 .qr-instructions h3 {
   margin: 0 0 15px 0;
-  color: #333;
+  color: var(--text-primary);
   font-size: 1.2rem;
 }
 
 .qr-instructions ol {
   text-align: left;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.6;
   padding-left: 20px;
 }
@@ -143,9 +135,10 @@
   align-items: center;
   gap: 15px;
   padding: 15px 20px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e1e5e9;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .timer-icon {
@@ -160,13 +153,13 @@
 
 .timer-content span:first-child {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .timer-display {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #333;
+  color: var(--text-primary);
   font-family: 'Courier New', monospace;
 }
 
@@ -199,17 +192,18 @@
 }
 
 .details-card {
-  background: #f8f9fa;
+  background: var(--bg-secondary);
   border-radius: 8px;
   padding: 25px;
-  border: 1px solid #e1e5e9;
+  border: 1px solid var(--border-color);
   height: fit-content;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .details-card h3,
 .details-card h4 {
   margin: 0 0 20px 0;
-  color: #333;
+  color: var(--text-primary);
   font-size: 1.3rem;
 }
 
@@ -217,7 +211,8 @@
   font-size: 1.1rem;
   margin: 25px 0 15px 0;
   padding-top: 20px;
-  border-top: 1px solid #e1e5e9;
+  border-top: 1px solid var(--border-color);
+  transition: border-color 0.3s;
 }
 
 .payment-info {
@@ -233,12 +228,12 @@
 }
 
 .info-row span:first-child {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .info-row span:last-child {
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .info-row .amount {
@@ -258,9 +253,10 @@
   gap: 12px;
   align-items: center;
   padding: 12px;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 6px;
-  border: 1px solid #e1e5e9;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .order-item .item-image {
@@ -287,12 +283,12 @@
 .order-item .item-name {
   font-weight: 500;
   font-size: 13px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .order-item .item-quantity {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .order-item .item-price {
@@ -318,15 +314,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border: 1px solid #e1e5e9;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 1.2rem;
+  transition: background-color 0.3s, border-color 0.3s;
 }
 
 .payment-methods p {
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.4;
 }
@@ -336,7 +333,8 @@
   gap: 20px;
   justify-content: center;
   padding: 30px;
-  border-top: 1px solid #e1e5e9;
+  border-top: 1px solid var(--border-color);
+  transition: border-color 0.3s;
 }
 
 .btn {
