@@ -1,5 +1,5 @@
 .payment-complete-page {
-  @apply p-5 max-w-3xl mx-auto min-h-[80vh] flex items-center justify-center;
+  @apply p-5 max-w-3xl mx-auto min-h-[80vh] flex items-center justify-center pt-[100px] md:pt-[110px] lg:pt-[120px];
 }
 
 .complete-container {
@@ -119,17 +119,12 @@
 }
 
 .success-content h2 {
-  margin: 0 0 15px 0;
-  font-size: 2rem;
-  color: var(--text-primary);
+  @apply m-0 mb-4 text-3xl text-slate-900 dark:text-slate-100;
   animation: fadeInUp 0.6s ease-out 0.3s both;
 }
 
 .success-message {
-  margin: 0 0 30px 0;
-  font-size: 16px;
-  color: var(--text-secondary);
-  line-height: 1.6;
+  @apply m-0 mb-8 text-base text-slate-600 dark:text-slate-400 leading-relaxed;
   animation: fadeInUp 0.6s ease-out 0.4s both;
 }
 
@@ -139,19 +134,11 @@
 }
 
 .info-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 25px;
-  border: 1px solid var(--border-color);
-  text-align: left;
-  transition: background-color 0.3s, border-color 0.3s;
+  @apply bg-slate-50 dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-600 text-left transition-colors duration-300;
 }
 
 .info-card h3 {
-  margin: 0 0 20px 0;
-  font-size: 1.3rem;
-  color: var(--text-primary);
-  text-align: center;
+  @apply m-0 mb-5 text-xl text-slate-900 dark:text-slate-100 text-center;
 }
 
 .info-row {
@@ -163,12 +150,11 @@
 }
 
 .info-row span:first-child {
-  color: var(--text-secondary);
+  @apply text-slate-600 dark:text-slate-400;
 }
 
 .info-row span:last-child {
-  font-weight: 500;
-  color: var(--text-primary);
+  @apply font-medium text-slate-900 dark:text-slate-100;
 }
 
 .order-number {
@@ -196,10 +182,7 @@
 }
 
 .next-steps h3 {
-  margin: 0 0 20px 0;
-  font-size: 1.3rem;
-  color: #333;
-  text-align: center;
+  @apply m-0 mb-5 text-xl text-slate-900 dark:text-slate-100 text-center;
 }
 
 .steps-list {
@@ -209,19 +192,11 @@
 }
 
 .step-item {
-  display: flex;
-  gap: 15px;
-  align-items: flex-start;
-  padding: 20px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border-left: 4px solid #667eea;
-  transition: all 0.3s;
+  @apply flex gap-4 items-start p-5 bg-slate-50 dark:bg-slate-900 rounded-xl border-l-4 border-primary-500 transition-all duration-300;
 }
 
 .step-item:hover {
-  background: #f0f0ff;
-  transform: translateX(5px);
+  @apply bg-primary-50 dark:bg-primary-900/20 transform translate-x-1;
 }
 
 .step-icon {
@@ -231,16 +206,11 @@
 }
 
 .step-content h4 {
-  margin: 0 0 8px 0;
-  font-size: 1rem;
-  color: var(--text-primary);
+  @apply m-0 mb-2 text-base font-medium text-slate-900 dark:text-slate-100;
 }
 
 .step-content p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.4;
+  @apply m-0 text-sm text-slate-600 dark:text-slate-400 leading-snug;
 }
 
 .contact-info {
@@ -249,9 +219,7 @@
 }
 
 .contact-info h3 {
-  margin: 0 0 20px 0;
-  font-size: 1.3rem;
-  color: var(--text-primary);
+  @apply m-0 mb-5 text-xl text-slate-900 dark:text-slate-100;
 }
 
 .contact-methods {
@@ -262,14 +230,7 @@
 }
 
 .contact-item {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 15px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  transition: background-color 0.3s, border-color 0.3s;
+  @apply flex gap-3 items-start p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-600 transition-colors duration-300;
 }
 
 .contact-icon {
@@ -278,16 +239,11 @@
 }
 
 .contact-item strong {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--text-primary);
-  font-size: 14px;
+  @apply block mb-1 text-slate-900 dark:text-slate-100 text-sm font-medium;
 }
 
 .contact-item p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
+  @apply m-0 text-xs text-slate-600 dark:text-slate-400;
 }
 
 .action-buttons {
@@ -360,7 +316,7 @@
 
 @media (max-width: 768px) {
   .payment-complete-page {
-    padding: 15px;
+    @apply p-4 pt-[90px];
   }
   
   .success-content {

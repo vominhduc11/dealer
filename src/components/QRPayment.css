@@ -1,5 +1,5 @@
 .qr-payment-page {
-  @apply p-5 max-w-4xl mx-auto;
+  @apply p-5 max-w-4xl mx-auto pt-[100px] md:pt-[110px] lg:pt-[120px];
 }
 
 .qr-payment-container {
@@ -387,7 +387,7 @@
 
 @media (max-width: 768px) {
   .qr-payment-page {
-    padding: 15px;
+    @apply p-4 pt-[90px];
   }
   
   .payment-content {

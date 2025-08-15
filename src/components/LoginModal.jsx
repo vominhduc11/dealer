@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { authAPI, handleAPIError } from '../services/api'
 import './LoginModal.css'
 
 const LoginModal = ({ isOpen, onLogin }) => {
@@ -25,29 +26,16 @@ const LoginModal = ({ isOpen, onLogin }) => {
     setError('')
 
     try {
-      const response = await fetch('http://localhost:8081/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          password: formData.password,
-          role: "DEALER"
-        })
+      const data = await authAPI.login({
+        username: formData.username,
+        password: formData.password
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        onLogin(data.dealer || data)
-        setFormData({ username: '', password: '' })
-      } else {
-        setError(data.message || 'Tên đăng nhập hoặc mật khẩu không đúng')
-      }
+      onLogin(data.dealer || data)
+      setFormData({ username: '', password: '' })
     } catch (error) {
-      setError('Lỗi kết nối. Vui lòng kiểm tra server backend.')
-      console.error('Login error:', error)
+      const errorInfo = handleAPIError(error, false)
+      setError(errorInfo.message)
     } finally {
       setIsLoading(false)
     }

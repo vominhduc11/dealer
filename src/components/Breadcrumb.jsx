@@ -5,21 +5,20 @@ const Breadcrumb = () => {
   const pathnames = location.pathname.split('/').filter((x) => x)
 
   const getBreadcrumbName = (pathname, index) => {
-    const isLast = index === pathnames.length - 1
     
     switch (pathname) {
       case 'products':
-        return { name: '📱 Sản phẩm', icon: '📱' }
+        return { name: 'Sản phẩm', icon: '📱' }
       case 'cart':
-        return { name: '🛒 Giỏ hàng', icon: '🛒' }
+        return { name: 'Giỏ hàng', icon: '🛒' }
       case 'checkout':
-        return { name: '💳 Thanh toán', icon: '💳' }
+        return { name: 'Thanh toán', icon: '💳' }
       case 'warranty':
-        return { name: '🛡️ Bảo hành', icon: '🛡️' }
+        return { name: 'Bảo hành', icon: '🛡️' }
       case 'payment-complete':
-        return { name: '✅ Hoàn thành', icon: '✅' }
+        return { name: 'Hoàn thành', icon: '✅' }
       case 'qr-payment':
-        return { name: '📱 QR Payment', icon: '📱' }
+        return { name: 'Thanh toán QR', icon: '📲' }
       default:
         // For product details, try to get product name from URL or show ID
         if (pathnames[0] === 'products' && index === 1) {

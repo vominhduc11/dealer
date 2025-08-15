@@ -121,15 +121,20 @@ const Checkout = ({ cart, totalAmount, onPaymentLater, onPaymentNow }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 p-6 md:p-8">
-          <div className="checkout-form">
-            <form onSubmit={handleSubmit}>
-              <div className="form-section">
-                <h3>Thông tin khách hàng</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 p-4 sm:p-6 md:p-8">
+            {/* Customer Information Form */}
+            <div className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 pb-2 border-b-2 border-primary-500">
+                    Thông tin khách hàng
+                  </h3>
                 
-                <div className="form-group">
-                  <label htmlFor="name">Họ và tên *</label>
-                  <input
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Họ và tên *
+                    </label>
+                    <input
                     type="text"
                     id="name"
                     name="name"

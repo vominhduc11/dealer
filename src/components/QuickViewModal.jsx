@@ -51,7 +51,7 @@ const QuickViewModal = ({ product, isOpen, onClose, onViewDetails }) => {
       addToCart(product, quantity)
       notifySuccess(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`)
       onClose()
-    } catch (error) {
+    } catch {
       notifyError('Không thể thêm sản phẩm vào giỏ hàng')
     } finally {
       setIsLoading(false)

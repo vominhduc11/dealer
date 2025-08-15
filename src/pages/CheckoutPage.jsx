@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import Checkout from '../components/Checkout'
+import CheckoutForm from '../components/CheckoutForm'
 import { useCart } from '../context/CartContext'
 
 const CheckoutPage = () => {
@@ -17,7 +17,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <Checkout
+    <CheckoutForm
       cart={cart}
       totalAmount={getTotalAmount()}
       onPaymentLater={handlePaymentLater}
