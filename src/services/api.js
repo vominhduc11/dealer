@@ -4,7 +4,7 @@
 const API_CONFIG = {
   BASE_URL: process.env.NODE_ENV === 'production' 
     ? 'https://api.tunezone.com'
-    : 'http://localhost:8081',
+    : 'http://localhost:8080',
   TIMEOUT: 10000, // 10 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000 // 1 second
@@ -70,7 +70,8 @@ const getCommonHeaders = () => {
   const headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
+    'X-Requested-With': 'XMLHttpRequest',
+    'Origin': 'http://localhost:8080'
   }
 
   // Add authentication token if available
@@ -276,7 +277,7 @@ export const api = {
 export const authAPI = {
   login: (credentials) => api.post('/api/auth/login', {
     ...credentials,
-    role: 'DEALER'
+    userType: 'DEALER'
   }),
 
   logout: () => {
