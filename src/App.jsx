@@ -67,56 +67,60 @@ function App() {
       <Router>
           <div className="app">
             <SkipLink />
-            
+
             <Routes>
-              <Route path="/" element={<DashboardLayout dealerInfo={dealerInfo} onLogout={handleLogout} />}>
-                <Route index element={<Navigate to="/products" replace />} />
-                <Route path="products" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <ProductsPage />
-                  </Suspense>
-                } />
-                <Route path="products/:id" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <ProductDetailPage />
-                  </Suspense>
-                } />
-                <Route path="cart" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <CartPage />
-                  </Suspense>
-                } />
-                <Route path="checkout" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <CheckoutPage />
-                  </Suspense>
-                } />
-                <Route path="payment-complete" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <PaymentCompletePage />
-                  </Suspense>
-                } />
-                <Route path="qr-payment" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <QRPaymentPage />
-                  </Suspense>
-                } />
-                <Route path="warranty" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <WarrantyPage />
-                  </Suspense>
-                } />
-                <Route path="order-success" element={
-                  <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                    <OrderSuccessPage />
-                  </Suspense>
-                } />
-              </Route>
+              {isLoggedIn ? (
+                <Route path="/" element={<DashboardLayout dealerInfo={dealerInfo} onLogout={handleLogout} />}>
+                  <Route index element={<Navigate to="/products" replace />} />
+                  <Route path="products" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <ProductsPage />
+                    </Suspense>
+                  } />
+                  <Route path="products/:id" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <ProductDetailPage />
+                    </Suspense>
+                  } />
+                  <Route path="cart" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <CartPage />
+                    </Suspense>
+                  } />
+                  <Route path="checkout" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <CheckoutPage />
+                    </Suspense>
+                  } />
+                  <Route path="payment-complete" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <PaymentCompletePage />
+                    </Suspense>
+                  } />
+                  <Route path="qr-payment" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <QRPaymentPage />
+                    </Suspense>
+                  } />
+                  <Route path="warranty" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <WarrantyPage />
+                    </Suspense>
+                  } />
+                  <Route path="order-success" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <OrderSuccessPage />
+                    </Suspense>
+                  } />
+                </Route>
+              ) : (
+                <Route path="*" element={<Navigate to="/" replace />} />
+              )}
             </Routes>
-            
+
             {/* Login Modal - shows when not logged in */}
             <LoginModal isOpen={!isLoggedIn} onLogin={handleLogin} />
-            
+
           </div>
         </Router>
     </ErrorBoundary>
