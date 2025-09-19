@@ -1,10 +1,21 @@
 import { useState } from 'react'
+import { useCart } from '../context/CartContext'
 import './ProductDetail.css'
 
 const ProductDetail = ({ product, onBack, onAddToCart }) => {
-  const [quantity, setQuantity] = useState(1)
+  const { isLoading: cartLoading } = useCart()
+  const [selectedTier, setSelectedTier] = useState(0)
+  const [quantity, setQuantity] = useState(product?.wholesalePrice?.[0]?.quantity || 1)
   const [activeTab, setActiveTab] = useState('description')
   const [showNotification, setShowNotification] = useState(false)
+  const [showQuoteModal, setShowQuoteModal] = useState(false)
+  const [quoteFormData, setQuoteFormData] = useState({
+    companyName: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    message: ''
+  })
 
   if (!product) {
     return (
@@ -26,23 +37,127 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
     }).format(price)
   }
 
+  const handleTierChange = (tierIndex) => {
+    setSelectedTier(tierIndex)
+    const tier = product.wholesalePrice[tierIndex]
+    setQuantity(tier.quantity)
+  }
 
   const handleQuantityChange = (newQuantity) => {
-    if (newQuantity >= 1 && newQuantity <= product.stock) {
+    const currentTier = product.wholesalePrice[selectedTier]
+    const nextTier = product.wholesalePrice[selectedTier + 1]
+
+    // Ensure quantity meets minimum for current tier
+    const minQuantity = currentTier.quantity
+    const maxQuantity = nextTier ? nextTier.quantity - 1 : 999999
+
+    if (newQuantity >= minQuantity && newQuantity <= maxQuantity) {
       setQuantity(newQuantity)
     }
   }
 
-  const handleAddToCart = () => {
-    onAddToCart(product, quantity)
-    setShowNotification(true)
-    setTimeout(() => {
-      setShowNotification(false)
-    }, 3000)
+  const getCurrentPrice = () => {
+    return product.wholesalePrice[selectedTier]?.price || product.price
+  }
+
+  const getTotalPrice = () => {
+    return getCurrentPrice() * quantity
+  }
+
+  const handleQuoteFormChange = (e) => {
+    const { name, value } = e.target
+    setQuoteFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleQuoteSubmit = async (e) => {
+    e.preventDefault()
+
+    const quoteData = {
+      product: {
+        id: product.id,
+        name: product.name,
+        sku: product.sku
+      },
+      tier: selectedTier,
+      tierInfo: product.wholesalePrice[selectedTier],
+      quantity,
+      unitPrice: getCurrentPrice(),
+      totalPrice: getTotalPrice(),
+      contact: quoteFormData
+    }
+
+    try {
+      // Simulate API call - replace with actual API when backend is ready
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Show success notification
+      setShowNotification(true)
+      setShowQuoteModal(false)
+
+      // Reset form
+      setQuoteFormData({
+        companyName: '',
+        contactName: '',
+        email: '',
+        phone: '',
+        message: ''
+      })
+
+      setTimeout(() => {
+        setShowNotification(false)
+      }, 5000)
+    } catch (error) {
+      console.error('Error submitting quote:', error)
+      // Handle error
+    }
+  }
+
+  const handleAddToCart = async () => {
+    try {
+      // Pass the current unit price based on selected tier
+      const unitPrice = getCurrentPrice()
+      await onAddToCart(product, quantity, unitPrice)
+      setShowNotification(true)
+      setTimeout(() => {
+        setShowNotification(false)
+      }, 3000)
+    } catch (error) {
+      console.error('Failed to add to cart:', error)
+    }
   }
 
   const getProductSpecs = () => {
-    // Thông số kỹ thuật dựa trên SKU
+    // Use specifications from API if available, otherwise fallback to basic info
+    if (product.specifications && (product.specifications.general || product.specifications.technical)) {
+      const specs = {}
+
+      // Add general specs
+      if (product.specifications.general) {
+        product.specifications.general.forEach(spec => {
+          specs[spec.label] = spec.value
+        })
+      }
+
+      // Add technical specs
+      if (product.specifications.technical) {
+        product.specifications.technical.forEach(spec => {
+          specs[spec.label] = spec.value
+        })
+      }
+
+      // Add basic product info
+      specs['SKU'] = product.sku
+      specs['Giá'] = formatPrice(product.price)
+      specs['Tồn kho'] = `${product.stock} sản phẩm`
+      specs['Bảo hành'] = `${product.warranty} tháng`
+
+      return specs
+    }
+
+    // Fallback to basic specs
     return {
       'SKU': product.sku,
       'Tên sản phẩm': product.name,
@@ -56,181 +171,470 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   const specs = getProductSpecs()
 
   return (
-      <div className="pt-[70px] xl:pt-[80px] 2xl:pt-[90px] 3xl:pt-[100px] 4xl:pt-[120px] 5xl:pt-[140px] pb-20 md:pb-5 max-w-screen-5xl mx-auto px-4 sm:px-5 md:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 4xl:px-20 5xl:px-24">
-      <div className="detail-header">
-        <div className="breadcrumb">
-          <button className="breadcrumb-btn" onClick={onBack}>
-            Sản phẩm
-          </button>
-          <span className="breadcrumb-separator">›</span>
-          <span className="breadcrumb-current">{product.name}</span>
-        </div>
-      </div>
-
-      <div className="detail-content">
-        <div className="product-images">
-          <div className="main-image">
-            <img src={product.image} alt={product.name} />
+      <div className="pt-[70px] xl:pt-[80px] 2xl:pt-[90px] 3xl:pt-[100px] 4xl:pt-[120px] 5xl:pt-[140px] pb-8 max-w-6xl mx-auto px-4">
+      <div className="grid lg:grid-cols-2 gap-8 mb-8">
+        <div className="space-y-4">
+          <div className="aspect-square bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-contain p-4"
+            />
           </div>
         </div>
 
-        <div className="product-info">
-          <div className="category-badge">{product.sku}</div>
-          <h1 className="product-title">{product.name}</h1>
-          <p className="product-description">{product.description}</p>
-          
-          <div className="product-meta">
-            <div className="price-info">
-              <div className="current-price">{formatPrice(product.price)}</div>
-              <div className="price-note">Giá đã bao gồm VAT</div>
-            </div>
-            
-            <div className="stock-info">
-              <span className={`stock-status ${product.stock > 0 ? 'in-stock' : 'out-stock'}`}>
-                {product.stock > 0 ? `Còn ${product.stock} sản phẩm` : 'Hết hàng'}
-              </span>
-            </div>
-            
-            <div className="warranty-info">
-              <span>🛡️ Bảo hành: {product.warranty} tháng</span>
-            </div>
-          </div>
+        <div className="space-y-6">
+          {product.sku && (
+            <span className="inline-block bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 px-3 py-1 rounded-full text-sm font-medium">
+              {product.sku}
+            </span>
+          )}
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+            {product.name}
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+            {product.description}
+          </p>
 
-          <div className="purchase-section">
-            <div className="quantity-selector">
-              <label>Số lượng:</label>
-              <div className="quantity-controls">
-                <button 
-                  className="qty-btn"
-                  onClick={() => handleQuantityChange(quantity - 1)}
-                  disabled={quantity <= 1}
-                >
-                  -
-                </button>
-                <input 
-                  type="number" 
-                  value={quantity}
-                  onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                  min="1"
-                  max={product.stock}
-                />
-                <button 
-                  className="qty-btn"
-                  onClick={() => handleQuantityChange(quantity + 1)}
-                  disabled={quantity >= product.stock}
-                >
-                  +
-                </button>
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">Giá sỉ theo số lượng</div>
+                  <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">
+                    {formatPrice(getCurrentPrice())}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Giá lẻ</div>
+                  <div className="text-lg text-slate-400 dark:text-slate-500 line-through">
+                    {formatPrice(product.price)}
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Giá sỉ ưu đãi cho đơn hàng số lượng lớn
               </div>
             </div>
-            
-            <div className="total-price">
-              <strong>Tổng: {formatPrice(product.price * quantity)}</strong>
+
+            <div className="flex items-center justify-end">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                🛡️ Bảo hành {product.warranty} tháng
+              </span>
             </div>
-            
-            <button 
-              className="btn btn-primary add-to-cart-btn"
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-            >
-              🛒 Thêm vào giỏ hàng
-            </button>
+          </div>
+
+          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-4">
+            {product.wholesalePrice && product.wholesalePrice.length > 0 ? (
+              <>
+                {/* Tier Selection */}
+                <div className="space-y-3">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Chọn gói số lượng:</span>
+                  <div className="grid gap-2">
+                    {product.wholesalePrice.map((tier, index) => (
+                      <button
+                        key={index}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          selectedTier === index
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                            : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                        }`}
+                        onClick={() => handleTierChange(index)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium text-slate-900 dark:text-slate-100">
+                              {tier.quantity}+ sản phẩm
+                            </div>
+                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                              {formatPrice(tier.price)}/sản phẩm
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                              Giá sỉ
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quantity Input */}
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Số lượng:</span>
+                  <div className="flex items-center border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden">
+                    <button
+                      className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
+                      onClick={() => handleQuantityChange(quantity - 1)}
+                      disabled={quantity <= product.wholesalePrice[selectedTier].quantity}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => handleQuantityChange(parseInt(e.target.value) || product.wholesalePrice[selectedTier].quantity)}
+                      min={product.wholesalePrice[selectedTier].quantity}
+                      className="w-20 px-3 py-2 text-center border-0 bg-white dark:bg-slate-800 focus:outline-none"
+                    />
+                    <button
+                      className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"
+                      onClick={() => handleQuantityChange(quantity + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    Tối thiểu: {product.wholesalePrice[selectedTier].quantity}
+                  </div>
+                </div>
+
+                {/* Total Price */}
+                <div className="bg-slate-100 dark:bg-slate-700 rounded-lg p-3">
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Tổng thanh toán:</div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                      {formatPrice(getTotalPrice())}
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {quantity} × {formatPrice(getCurrentPrice())}
+                  </div>
+                </div>
+
+                {/* Add to Cart Button */}
+                <button
+                  className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  onClick={handleAddToCart}
+                  disabled={cartLoading}
+                >
+                  {cartLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Đang thêm...
+                    </>
+                  ) : (
+                    <>
+                      🛒 Thêm vào giỏ hàng
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                Liên hệ để biết thêm thông tin
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="detail-tabs">
-        <div className="tab-headers">
-          <button 
-            className={`tab-header ${activeTab === 'description' ? 'active' : ''}`}
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+        <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-700 mb-6 -mb-px">
+          <button
+            className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 ${
+              activeTab === 'description'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+            }`}
             onClick={() => setActiveTab('description')}
           >
-            Mô tả chi tiết
+            📝 Mô tả chi tiết
           </button>
-          <button 
-            className={`tab-header ${activeTab === 'specs' ? 'active' : ''}`}
+          <button
+            className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 ${
+              activeTab === 'specs'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+            }`}
             onClick={() => setActiveTab('specs')}
           >
-            Thông số kỹ thuật
+            ⚙️ Thông số kỹ thuật
           </button>
-          <button 
-            className={`tab-header ${activeTab === 'warranty' ? 'active' : ''}`}
+          {product.videos && product.videos.length > 0 && (
+            <button
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 ${
+                activeTab === 'videos'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+              onClick={() => setActiveTab('videos')}
+            >
+              🎥 Video
+            </button>
+          )}
+          <button
+            className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors duration-200 ${
+              activeTab === 'warranty'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600'
+            }`}
             onClick={() => setActiveTab('warranty')}
           >
-            Chính sách bảo hành
+            🛡️ Bảo hành
           </button>
         </div>
 
-        <div className="tab-content">
+        <div className="min-h-[300px]">
           {activeTab === 'description' && (
-            <div className="tab-pane">
-              <h3>Mô tả chi tiết sản phẩm</h3>
-              <p>{product.description}</p>
-              <p>
-                {product.name} là một sản phẩm chất lượng cao với thiết kế hiện đại và tính năng vượt trội. 
-                Sản phẩm được thiết kế để mang lại trải nghiệm tốt nhất cho người dùng với công nghệ tiên tiến nhất.
-              </p>
-              <ul>
-                <li>Thiết kế cao cấp, sang trọng</li>
-                <li>Hiệu năng mạnh mẽ, ổn định</li>
-                <li>Tối ưu hóa trải nghiệm người dùng</li>
-                <li>Hỗ trợ các tính năng thông minh</li>
-              </ul>
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Mô tả chi tiết sản phẩm</h3>
+              {product.descriptions && product.descriptions.length > 0 ? (
+                <div className="prose prose-slate dark:prose-invert max-w-none">
+                  {product.descriptions.map((desc, index) => {
+                    if (desc.type === 'title') {
+                      return (
+                        <h4 key={index} className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-6 mb-3 first:mt-0">
+                          {desc.text}
+                        </h4>
+                      )
+                    } else if (desc.type === 'image') {
+                      return (
+                        <div key={index} className="my-4 rounded-lg overflow-hidden">
+                          <img
+                            src={desc.link.url}
+                            alt="Mô tả sản phẩm"
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
+                      )
+                    } else if (desc.type === 'description') {
+                      return (
+                        <div
+                          key={index}
+                          className="prose prose-slate dark:prose-invert prose-lg"
+                          dangerouslySetInnerHTML={{__html: desc.text}}
+                        />
+                      )
+                    }
+                    return null
+                  })}
+                </div>
+              ) : (
+                <div className="prose prose-slate dark:prose-invert max-w-none">
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{product.description}</p>
+                </div>
+              )}
             </div>
           )}
           
           {activeTab === 'specs' && (
-            <div className="tab-pane">
-              <h3>Thông số kỹ thuật</h3>
-              <div className="specs-table">
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Thông số kỹ thuật</h3>
+              <div className="grid gap-3">
                 {Object.entries(specs).map(([key, value]) => (
-                  <div key={key} className="spec-row">
-                    <div className="spec-label">{key}</div>
-                    <div className="spec-value">{value}</div>
+                  <div key={key} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{key}</div>
+                    <div className="text-slate-600 dark:text-slate-400 text-right">{value}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
           
+          {activeTab === 'videos' && product.videos && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Video sản phẩm</h3>
+              <div className="grid gap-6">
+                {product.videos.map((video, index) => (
+                  <div key={index} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                    <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">{video.title}</h4>
+                    <p className="text-slate-600 dark:text-slate-400 mb-3 text-sm">{video.description}</p>
+                    <div className="rounded-lg overflow-hidden">
+                      <video controls className="w-full h-auto max-w-4xl">
+                        <source src={video.videoUrl} type="video/mp4" />
+                      </video>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+
           {activeTab === 'warranty' && (
-            <div className="tab-pane">
-              <h3>Chính sách bảo hành</h3>
-              <div className="warranty-policy">
-                <p><strong>Thời gian bảo hành:</strong> {product.warranty} tháng</p>
-                <p><strong>Điều kiện bảo hành:</strong></p>
-                <ul>
-                  <li>Sản phẩm còn trong thời hạn bảo hành</li>
-                  <li>Có phiếu bảo hành và hóa đơn mua hàng</li>
-                  <li>Lỗi do nhà sản xuất, không do người dùng</li>
-                  <li>Sản phẩm chưa bị tác động bởi ngoại lực</li>
-                </ul>
-                <p><strong>Quy trình bảo hành:</strong></p>
-                <ol>
-                  <li>Liên hệ trung tâm bảo hành hoặc đại lý</li>
-                  <li>Mang sản phẩm và giấy tờ liên quan đến trung tâm</li>
-                  <li>Kiểm tra và xác định lỗi</li>
-                  <li>Sửa chữa hoặc thay thế sản phẩm</li>
-                  <li>Giao sản phẩm về cho khách hàng</li>
-                </ol>
+            <div className="space-y-6">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Chính sách bảo hành</h3>
+
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🛡️</span>
+                  <div>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">Thời gian bảo hành</h4>
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400">{product.warranty} tháng</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    ✅ Điều kiện bảo hành
+                  </h4>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    {product.warranty > 0 ? `Bảo hành ${product.warranty} tháng theo chính sách nhà sản xuất` : 'Không có thông tin bảo hành'}
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    🔄 Quy trình bảo hành
+                  </h4>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    Vui lòng liên hệ để biết thêm chi tiết về quy trình bảo hành.
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Professional Notification */}
-      {showNotification && (
-        <div className="cart-notification">
-          <div className="notification-content">
-            <div className="notification-icon">✓</div>
-            <div className="notification-info">
-              <h4>Đã thêm vào giỏ hàng!</h4>
-              <p>{quantity} × {product.name}</p>
-              <p className="notification-price">{formatPrice(product.price * quantity)}</p>
+      {/* Quote Request Modal */}
+      {showQuoteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Yêu cầu báo giá sỉ
+                </h3>
+                <button
+                  onClick={() => setShowQuoteModal(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div className="notification-image">
-              <img src={product.image} alt={product.name} />
+
+            <form onSubmit={handleQuoteSubmit} className="p-6 space-y-4">
+              {/* Product Summary */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 space-y-2">
+                <h4 className="font-medium text-slate-900 dark:text-slate-100">Chi tiết đơn hàng</h4>
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  <p><strong>Sản phẩm:</strong> {product.name}</p>
+                  <p><strong>SKU:</strong> {product.sku}</p>
+                  <p><strong>Số lượng:</strong> {quantity} sản phẩm</p>
+                  <p><strong>Đơn giá:</strong> {formatPrice(getCurrentPrice())}</p>
+                  <p><strong>Tổng tiền:</strong> {formatPrice(getTotalPrice())}</p>
+                </div>
+              </div>
+
+              {/* Contact Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Tên công ty *
+                  </label>
+                  <input
+                    type="text"
+                    name="companyName"
+                    value={quoteFormData.companyName}
+                    onChange={handleQuoteFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Nhập tên công ty"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Người liên hệ *
+                  </label>
+                  <input
+                    type="text"
+                    name="contactName"
+                    value={quoteFormData.contactName}
+                    onChange={handleQuoteFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Nhập tên người liên hệ"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={quoteFormData.email}
+                    onChange={handleQuoteFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Nhập email liên hệ"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Số điện thoại *
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={quoteFormData.phone}
+                    onChange={handleQuoteFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Nhập số điện thoại"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Tin nhắn
+                  </label>
+                  <textarea
+                    name="message"
+                    value={quoteFormData.message}
+                    onChange={handleQuoteFormChange}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Thông tin bổ sung (tuỳ chọn)"
+                  />
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowQuoteModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Huỷ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  Gửi yêu cầu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {showNotification && (
+        <div className="fixed top-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="font-medium">Đã thêm vào giỏ hàng!</h4>
+              <p className="text-sm opacity-90">{quantity} sản phẩm đã được thêm.</p>
             </div>
           </div>
         </div>

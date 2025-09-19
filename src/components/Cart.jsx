@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 
-const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => {
+const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoadingProductInfo = false }) => {
   const navigate = useNavigate()
   const VAT_RATE = 0.1
 
@@ -15,9 +15,9 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => 
   const calculateVAT = (amount) => amount * VAT_RATE
   const calculateTotal = (amount) => amount + calculateVAT(amount)
 
-  const handleQuantityChange = (productId, newQuantity) => {
+  const handleQuantityChange = (productId, newQuantity, unitPrice) => {
     if (newQuantity >= 1) {
-      onUpdateItem(productId, newQuantity)
+      onUpdateItem(productId, newQuantity, unitPrice)
     }
   }
 
@@ -45,33 +45,42 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => 
         <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
           Giỏ hàng ({cart.length} sản phẩm)
         </h1>
+        {isLoadingProductInfo && (
+          <div className="mt-2 text-sm text-primary-600 dark:text-primary-400 flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+            Đang tải thông tin sản phẩm...
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
           {cart.map(item => (
-            <div key={item.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-all duration-300 hover:shadow-md">
+            <div key={item.productId || item.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-all duration-300 hover:shadow-md">
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Product Image */}
                 <div className="flex-shrink-0">
-                  <img 
-                    src={item.image} 
-                    alt={item.name}
+                  <img
+                    src={item.image || '/placeholder-product.png'}
+                    alt={item.name || 'Sản phẩm'}
                     className="w-full sm:w-24 h-32 sm:h-24 object-contain rounded-lg bg-slate-50 dark:bg-slate-700"
+                    onError={(e) => {
+                      e.target.src = '/placeholder-product.png'
+                    }}
                   />
                 </div>
                 
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
-                    {item.name}
+                    {item.name || 'Tên sản phẩm'}
                   </h3>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                    {item.description}
+                    {item.description || 'Không có mô tả'}
                   </p>
                   <div className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                    {formatPrice(item.price)}
+                    {formatPrice(item.unitPrice || item.price)}
                   </div>
                 </div>
                 
@@ -81,7 +90,7 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => 
                   <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                     <button 
                       className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                      onClick={() => handleQuantityChange(item.productId || item.id, item.quantity - 1, item.unitPrice || item.price)}
                       disabled={item.quantity <= 1}
                     >
                       −
@@ -91,7 +100,7 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => 
                     </span>
                     <button 
                       className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                      onClick={() => handleQuantityChange(item.productId || item.id, item.quantity + 1, item.unitPrice || item.price)}
                       disabled={item.quantity >= item.stock}
                     >
                       +
@@ -106,7 +115,7 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => 
                   {/* Remove Button */}
                   <button 
                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    onClick={() => onRemoveItem(item.id)}
+                    onClick={() => onRemoveItem(item.productId || item.id)}
                     title="Xóa sản phẩm"
                   >
                     🗑️
@@ -146,11 +155,11 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount }) => 
               </div>
             </div>
             
-            <button 
+            <button
               className="w-full mt-6 px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors duration-300 flex items-center justify-center gap-2"
               onClick={onCheckout}
             >
-              💳 Tiến hành thanh toán
+              📦 Đặt hàng
             </button>
             
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">

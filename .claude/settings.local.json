@@ -7,7 +7,8 @@
       "Bash(npm run build:*)",
       "Bash(npm install)",
       "Bash(pkill:*)",
-      "Bash(wmic process where:*)"
+      "Bash(wmic process where:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

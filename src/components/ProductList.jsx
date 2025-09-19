@@ -5,109 +5,31 @@ import QuickViewModal from './QuickViewModal'
 import Pagination, { usePagination } from './Pagination'
 import ProductFilters from './ProductFilters'
 import { useNavigate } from 'react-router-dom'
+import { productsAPI, handleAPIError } from '../services/api'
 
-const SAMPLE_PRODUCTS = [
-  {
-    id: 1,
-    sku: 'SCS-WH1000XM5-BLK',
-    name: 'Sony WH-1000XM5 Black',
-    price: 7990000,
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe chống ồn cao cấp với công nghệ V1 processor',
-    stock: 25,
-    warranty: 12
-  },
-  {
-    id: 2,
-    sku: 'SCS-WH1000XM5-SLV',
-    name: 'Sony WH-1000XM5 Silver',
-    price: 7990000,
-    image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe chống ồn cao cấp màu bạc, thiết kế sang trọng',
-    stock: 18,
-    warranty: 12
-  },
-  {
-    id: 3,
-    sku: 'SCS-WH1000XM4-BLK',
-    name: 'Sony WH-1000XM4 Black',
-    price: 6490000,
-    image: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe chống ồn thế hệ 4 với LDAC và Quick Attention',
-    stock: 35,
-    warranty: 12
-  },
-  {
-    id: 4,
-    sku: 'SCS-WF1000XM4-BLK',
-    name: 'Sony WF-1000XM4 Black',
-    price: 4990000,
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe True Wireless chống ồn với driver 6mm',
-    stock: 45,
-    warranty: 12
-  },
-  {
-    id: 5,
-    sku: 'SCS-WF1000XM4-SLV',
-    name: 'Sony WF-1000XM4 Silver',
-    price: 4990000,
-    image: 'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe True Wireless chống ồn màu bạc, compact',
-    stock: 32,
-    warranty: 12
-  },
-  {
-    id: 6,
-    sku: 'SCS-WHCH720N-BLK',
-    name: 'Sony WH-CH720N Black',
-    price: 2990000,
-    image: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe chống ồn tầm trung với 35 giờ pin',
-    stock: 60,
-    warranty: 12
-  },
-  {
-    id: 7,
-    sku: 'SCS-WHCH720N-BLU',
-    name: 'Sony WH-CH720N Blue',
-    price: 2990000,
-    image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe chống ồn màu xanh, thiết kế trẻ trung',
-    stock: 28,
-    warranty: 12
-  },
-  {
-    id: 8,
-    sku: 'SCS-WFLS900N-BLK',
-    name: 'Sony WF-LS900N Black',
-    price: 3490000,
-    image: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe True Wireless chống ồn cho thể thao',
-    stock: 22,
-    warranty: 12
-  },
-  {
-    id: 9,
-    sku: 'SCS-WFC500-WHT',
-    name: 'Sony WF-C500 White',
-    price: 1490000,
-    image: 'https://images.unsplash.com/photo-1608156639585-b3a4735e8b36?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe True Wireless cơ bản, chất lượng Sony',
-    stock: 85,
-    warranty: 12
-  },
-  {
-    id: 10,
-    sku: 'SCS-WFC500-BLK',
-    name: 'Sony WF-C500 Black',
-    price: 1490000,
-    image: 'https://images.unsplash.com/photo-1577174881658-0f30ed549adc?w=400&h=300&fit=crop&crop=center',
-    description: 'Tai nghe True Wireless entry-level màu đen',
-    stock: 90,
-    warranty: 12
+// Helper function to parse image JSON string
+const parseImageUrl = (imageStr) => {
+  try {
+    const imageObj = JSON.parse(imageStr)
+    return imageObj.imageUrl || ''
+  } catch (e) {
+    return imageStr // fallback to original string if not JSON
   }
-]
+}
+
+// Helper function to transform API product data
+const transformProduct = (apiProduct, stock = 0) => {
+  return {
+    id: apiProduct.id,
+    sku: apiProduct.sku || `SCS-${apiProduct.id}`,
+    name: apiProduct.name,
+    price: apiProduct.price,
+    image: parseImageUrl(apiProduct.image),
+    description: apiProduct.shortDescription || '',
+    stock: stock,
+    warranty: 24 // Default 24 months warranty
+  }
+}
 
 const ProductList = ({ onProductClick }) => {
   const navigate = useNavigate()
@@ -119,31 +41,54 @@ const ProductList = ({ onProductClick }) => {
   const [showQuickView, setShowQuickView] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
 
-  // Simulate API call with loading state
+  // Load products from API
   useEffect(() => {
     let cancelled = false
-    
+
     const loadProducts = async () => {
       if (cancelled) return
-      
+
       try {
         setLoading(true)
         setError(null)
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
-        if (cancelled) return // Check again after async operation
-        
-        // Simulate potential network error (5% chance)
-        if (Math.random() < 0.05) {
-          throw new Error('Network error')
-        }
-        
-        setProducts(SAMPLE_PRODUCTS)
+
+        const response = await productsAPI.getAll()
+
+        if (cancelled) return
+
+        // Fetch stock count for each product concurrently
+        const stockPromises = response.data.map(async (product) => {
+          try {
+            const stockResponse = await productsAPI.getAvailableCount(product.id)
+            return { id: product.id, stock: stockResponse.data }
+          } catch (err) {
+            console.warn(`Failed to fetch stock for product ${product.id}:`, err)
+            return { id: product.id, stock: 0 }
+          }
+        })
+
+        const stockResults = await Promise.allSettled(stockPromises)
+        const stockMap = new Map()
+
+        stockResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            stockMap.set(result.value.id, result.value.stock)
+          } else {
+            // Fallback to 0 if stock fetch failed
+            stockMap.set(response.data[index].id, 0)
+          }
+        })
+
+        if (cancelled) return
+
+        const transformedProducts = response.data.map(product =>
+          transformProduct(product, stockMap.get(product.id) || 0)
+        )
+        setProducts(transformedProducts)
       } catch (err) {
         if (!cancelled) {
-          setError(err.message)
+          const errorInfo = handleAPIError(err, false)
+          setError(errorInfo.message)
         }
       } finally {
         if (!cancelled) {
@@ -153,7 +98,7 @@ const ProductList = ({ onProductClick }) => {
     }
 
     loadProducts()
-    
+
     return () => {
       cancelled = true
     }
@@ -395,15 +340,19 @@ const ProductList = ({ onProductClick }) => {
                   className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 bg-white dark:bg-slate-700"
                   placeholder={<div className="text-4xl text-slate-400">📱</div>}
                 />
-                <div className="absolute top-2.5 right-2.5 bg-primary-500/90 text-white px-2 py-1 text-xs rounded font-medium">
-                  {product.sku}
-                </div>
+                {product.sku && !product.sku.startsWith('SCS-') && (
+                  <div className="absolute top-2.5 right-2.5 bg-primary-500/90 text-white px-2 py-1 text-xs rounded font-medium">
+                    {product.sku}
+                  </div>
+                )}
               </div>
               <div className="p-4 md:p-5">
                 <h3 className="text-slate-900 dark:text-slate-100 text-lg md:text-xl font-semibold mb-2">{product.name}</h3>
                 <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">{product.description}</p>
                 <div className="flex flex-col gap-1.5">
-                  <div className="text-slate-500 dark:text-slate-400 text-xs font-mono font-semibold">SKU: {product.sku}</div>
+                  {product.sku && !product.sku.startsWith('SCS-') && (
+                    <div className="text-slate-500 dark:text-slate-400 text-xs font-mono font-semibold">SKU: {product.sku}</div>
+                  )}
                   <div className="text-primary-500 dark:text-primary-400 text-lg font-bold">{formatPrice(product.price)}</div>
                   <div className="text-success-500 dark:text-success-400 text-xs">
                     Còn lại: {product.stock} sản phẩm

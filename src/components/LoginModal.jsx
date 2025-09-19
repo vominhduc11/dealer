@@ -26,12 +26,12 @@ const LoginModal = ({ isOpen, onLogin }) => {
     setError('')
 
     try {
-      const data = await authAPI.login({
+      const response = await authAPI.login({
         username: formData.username,
         password: formData.password
       })
 
-      onLogin(data.dealer || data)
+      onLogin(response.data)
       setFormData({ username: '', password: '' })
     } catch (error) {
       const errorInfo = handleAPIError(error, false)

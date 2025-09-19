@@ -65,6 +65,21 @@ export class ServerError extends APIError {
   }
 }
 
+// Utility function to get dealer info from localStorage
+export const getDealerInfo = () => {
+  try {
+    const savedLogin = localStorage.getItem('dealerLogin')
+    if (savedLogin) {
+      return JSON.parse(savedLogin)
+    }
+    return null
+  } catch (e) {
+    console.warn('Failed to parse saved login data:', e)
+    localStorage.removeItem('dealerLogin')
+    return null
+  }
+}
+
 // Request interceptor for adding common headers
 const getCommonHeaders = () => {
   const headers = {
@@ -75,17 +90,9 @@ const getCommonHeaders = () => {
   }
 
   // Add authentication token if available
-  const savedLogin = localStorage.getItem('dealerLogin')
-  if (savedLogin) {
-    try {
-      const loginData = JSON.parse(savedLogin)
-      if (loginData.token) {
-        headers['Authorization'] = `Bearer ${loginData.token}`
-      }
-    } catch (e) {
-      console.warn('Failed to parse saved login data:', e)
-      localStorage.removeItem('dealerLogin')
-    }
+  const dealerInfo = getDealerInfo()
+  if (dealerInfo?.accessToken) {
+    headers['Authorization'] = `Bearer ${dealerInfo.accessToken}`
   }
 
   return headers
@@ -277,7 +284,7 @@ export const api = {
 export const authAPI = {
   login: (credentials) => api.post('/api/auth/login', {
     ...credentials,
-    userType: 'DEALER'
+    userType: 'dealer'
   }),
 
   logout: () => {
@@ -293,17 +300,24 @@ export const authAPI = {
 }
 
 export const productsAPI = {
-  getAll: (params = {}) => api.get('/api/products', params),
-  
-  getById: (id) => api.get(`/api/products/${id}`),
-  
+  getAll: (params = {}) => api.get('/api/product/products', {
+    fields: 'id,sku,name,shortDescription,image,price',
+    ...params
+  }),
+
+  getById: (id) => api.get(`/api/product/${id}`),
+
+  getBasicInfo: (id, fields = 'name,image') => api.get(`/api/product/${id}?fields=${fields}`),
+
+  getAvailableCount: (id) => api.get(`/api/product/${id}/available-count`),
+
   search: (query, filters = {}) => api.get('/api/products/search', {
     q: query,
     ...filters
   }),
-  
+
   getCategories: () => api.get('/api/products/categories'),
-  
+
   getBrands: () => api.get('/api/products/brands')
 }
 
@@ -335,15 +349,32 @@ export const warrantyAPI = {
   }
 }
 
+export const cartAPI = {
+  add: (dealerId, productId, quantity, unitPrice) => api.post('/api/cart/add', {
+    dealerId,
+    productId,
+    quantity,
+    unitPrice
+  }),
+
+  getAll: (dealerId) => api.get(`/api/cart/dealer/${dealerId}`),
+
+  update: (dealerId, productId, quantity, unitPrice) => api.put(`/api/cart/dealer/${dealerId}/product/${productId}?quantity=${quantity}&unitPrice=${unitPrice}`),
+
+  remove: (dealerId, productId) => api.delete(`/api/cart/dealer/${dealerId}/product/${productId}`),
+
+  clear: (dealerId) => api.delete(`/api/cart/clear?dealerId=${dealerId}`)
+}
+
 export const dealerAPI = {
   getProfile: () => api.get('/api/dealer/profile'),
-  
+
   updateProfile: (profileData) => api.patch('/api/dealer/profile', profileData),
-  
+
   getStats: () => api.get('/api/dealer/stats'),
-  
+
   getOrders: (params = {}) => api.get('/api/dealer/orders', params),
-  
+
   getSales: (params = {}) => api.get('/api/dealer/sales', params)
 }
 
@@ -381,19 +412,7 @@ export const handleAPIError = (error, showNotification = true) => {
 if (process.env.NODE_ENV === 'development') {
   const originalFetch = window.fetch
   window.fetch = function(...args) {
-    console.group('🌐 API Request')
-    console.log('URL:', args[0])
-    console.log('Options:', args[1])
-    console.groupEnd()
-    
-    return originalFetch.apply(this, args).then(response => {
-      console.group('📡 API Response')
-      console.log('Status:', response.status, response.statusText)
-      console.log('Headers:', Object.fromEntries(response.headers.entries()))
-      console.groupEnd()
-      
-      return response
-    })
+    return originalFetch.apply(this, args)
   }
 }
 
