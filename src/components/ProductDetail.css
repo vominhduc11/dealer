@@ -237,7 +237,7 @@
   .tab-headers {
     @apply flex-wrap;
   }
-  
+
   .tab-header {
     @apply flex-1 min-w-[120px] py-3 px-2.5 text-sm;
   }

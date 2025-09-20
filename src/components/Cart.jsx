@@ -12,13 +12,33 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
     }).format(price)
   }
 
+  const getImageUrl = (imageData) => {
+    if (!imageData) return null
+
+    // If it's already a URL string
+    if (typeof imageData === 'string' && imageData.startsWith('http')) {
+      return imageData
+    }
+
+    // If it's a JSON string, parse it
+    if (typeof imageData === 'string' && imageData.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(imageData)
+        return parsed.imageUrl || null
+      } catch (error) {
+        console.warn('Failed to parse image JSON:', error)
+        return null
+      }
+    }
+
+    return null
+  }
+
   const calculateVAT = (amount) => amount * VAT_RATE
   const calculateTotal = (amount) => amount + calculateVAT(amount)
 
-  const handleQuantityChange = (productId, newQuantity, unitPrice) => {
-    if (newQuantity >= 1) {
-      onUpdateItem(productId, newQuantity, unitPrice)
-    }
+  const handleQuantityChange = (cartId, action, quantity = null) => {
+    onUpdateItem(cartId, action, quantity)
   }
 
   if (cart.length === 0) {
@@ -56,19 +76,28 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
-          {cart.map(item => (
-            <div key={item.productId || item.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-all duration-300 hover:shadow-md">
+          {cart.map((item, index) => (
+            <div key={`cart-item-${item.cartId || item.id}`} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-all duration-300 hover:shadow-md">
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Product Image */}
                 <div className="flex-shrink-0">
-                  <img
-                    src={item.image || '/placeholder-product.png'}
-                    alt={item.name || 'Sản phẩm'}
-                    className="w-full sm:w-24 h-32 sm:h-24 object-contain rounded-lg bg-slate-50 dark:bg-slate-700"
-                    onError={(e) => {
-                      e.target.src = '/placeholder-product.png'
-                    }}
-                  />
+                  {(() => {
+                    const imageUrl = getImageUrl(item.image)
+                    return imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={item.name || 'Sản phẩm'}
+                        className="w-full sm:w-24 h-32 sm:h-24 object-contain rounded-lg bg-slate-50 dark:bg-slate-700"
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                          e.target.nextElementSibling.style.display = 'flex'
+                        }}
+                      />
+                    ) : null
+                  })()}
+                  <div className="w-full sm:w-24 h-32 sm:h-24 flex items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-400" style={{display: getImageUrl(item.image) ? 'none' : 'flex'}}>
+                    📦
+                  </div>
                 </div>
                 
                 {/* Product Info */}
@@ -79,8 +108,15 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
                     {item.description || 'Không có mô tả'}
                   </p>
-                  <div className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                    {formatPrice(item.unitPrice || item.price)}
+                  <div className="space-y-1">
+                    {item.price && item.unitPrice && item.price !== item.unitPrice && (
+                      <div className="text-sm text-slate-500 dark:text-slate-400 line-through">
+                        Giá gốc: {formatPrice(item.price)}
+                      </div>
+                    )}
+                    <div className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                      Giá sỉ: {formatPrice(item.unitPrice || item.price)}
+                    </div>
                   </div>
                 </div>
                 
@@ -88,19 +124,28 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
                 <div className="flex flex-col items-end gap-3">
                   {/* Quantity Controls */}
                   <div className="flex items-center bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden">
-                    <button 
+                    <button
                       className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleQuantityChange(item.productId || item.id, item.quantity - 1, item.unitPrice || item.price)}
+                      onClick={() => handleQuantityChange(item.cartId, 'decrement')}
                       disabled={item.quantity <= 1}
                     >
                       −
                     </button>
-                    <span className="w-12 text-center font-medium text-slate-900 dark:text-white">
-                      {item.quantity}
-                    </span>
-                    <button 
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const newQuantity = parseInt(e.target.value)
+                        if (newQuantity >= 1) {
+                          handleQuantityChange(item.cartId, 'set', newQuantity)
+                        }
+                      }}
+                      className="w-12 text-center font-medium text-slate-900 dark:text-white bg-transparent border-none outline-none focus:bg-slate-50 dark:focus:bg-slate-600 rounded"
+                    />
+                    <button
                       className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleQuantityChange(item.productId || item.id, item.quantity + 1, item.unitPrice || item.price)}
+                      onClick={() => handleQuantityChange(item.cartId, 'increment')}
                       disabled={item.quantity >= item.stock}
                     >
                       +
@@ -108,14 +153,19 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
                   </div>
                   
                   {/* Item Total */}
-                  <div className="text-lg font-bold text-slate-900 dark:text-white">
-                    {formatPrice(item.price * item.quantity)}
+                  <div className="text-right">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      Tổng tiền
+                    </div>
+                    <div className="text-lg font-bold text-slate-900 dark:text-white">
+                      {formatPrice(item.unitPrice * item.quantity)}
+                    </div>
                   </div>
                   
                   {/* Remove Button */}
-                  <button 
+                  <button
                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    onClick={() => onRemoveItem(item.productId || item.id)}
+                    onClick={() => onRemoveItem(item.cartId)}
                     title="Xóa sản phẩm"
                   >
                     🗑️
@@ -135,7 +185,7 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
             
             <div className="space-y-4">
               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Tạm tính:</span>
+                <span>Tạm tính (giá sỉ):</span>
                 <span>{formatPrice(totalAmount)}</span>
               </div>
               <div className="flex justify-between text-slate-600 dark:text-slate-400">

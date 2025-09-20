@@ -3,11 +3,48 @@ import { useState } from 'react'
 const ProductDetailTabs = ({ product }) => {
   const [activeTab, setActiveTab] = useState('description')
 
+  // Utility function to get image URL from JSON string or direct URL
+  const getImageUrl = (imageData) => {
+    if (!imageData) return null
+
+    // If it's already a URL string
+    if (typeof imageData === 'string' && imageData.startsWith('http')) {
+      return imageData
+    }
+
+    // If it's a JSON string, parse it
+    if (typeof imageData === 'string' && imageData.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(imageData)
+        return parsed.imageUrl || null
+      } catch (error) {
+        console.warn('Failed to parse image JSON:', error)
+        return null
+      }
+    }
+
+    return null
+  }
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND'
     }).format(price)
+  }
+
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null
+
+    // Extract video ID from various YouTube URL formats
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+    const match = url.match(regex)
+
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`
+    }
+
+    return url // Return original URL if not YouTube
   }
 
   const getProductSpecs = () => {
@@ -104,24 +141,25 @@ const ProductDetailTabs = ({ product }) => {
                 {product.descriptions.map((desc, index) => {
                   if (desc.type === 'title') {
                     return (
-                      <h4 key={index} className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-6 mb-3 first:mt-0">
+                      <h4 key={`tabs-desc-title-${index}`} className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-6 mb-3 first:mt-0">
                         {desc.text}
                       </h4>
                     )
                   } else if (desc.type === 'image') {
-                    return (
-                      <div key={index} className="my-4 rounded-lg overflow-hidden">
+                    const imageUrl = getImageUrl(desc.imageUrl || desc.link?.url || desc.url)
+                    return imageUrl ? (
+                      <div key={`tabs-desc-image-${index}`} className="my-4 rounded-lg overflow-hidden">
                         <img
-                          src={desc.link.url}
+                          src={imageUrl}
                           alt="Mô tả sản phẩm"
                           className="w-full h-auto object-cover"
                         />
                       </div>
-                    )
+                    ) : null
                   } else if (desc.type === 'description') {
                     return (
                       <div
-                        key={index}
+                        key={`tabs-desc-text-${index}`}
                         className="prose prose-slate dark:prose-invert prose-lg"
                         dangerouslySetInnerHTML={{__html: desc.text}}
                       />
@@ -157,13 +195,18 @@ const ProductDetailTabs = ({ product }) => {
             <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Video sản phẩm</h3>
             <div className="grid gap-6">
               {product.videos.map((video, index) => (
-                <div key={index} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                <div key={`tabs-video-${index}`} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                   <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">{video.title}</h4>
                   <p className="text-slate-600 dark:text-slate-400 mb-3 text-sm">{video.description}</p>
                   <div className="rounded-lg overflow-hidden">
-                    <video controls className="w-full h-auto max-w-4xl">
-                      <source src={video.videoUrl} type="video/mp4" />
-                    </video>
+                    <iframe
+                      src={getYouTubeEmbedUrl(video.videoUrl)}
+                      title={video.title}
+                      className="w-full h-64 md:h-80 lg:h-96"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
                   </div>
                 </div>
               ))}

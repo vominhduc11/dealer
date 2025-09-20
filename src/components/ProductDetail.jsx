@@ -1,11 +1,40 @@
 import { useState } from 'react'
 import { useCart } from '../context/CartContext'
+import { getDealerInfo } from '../services/api'
 import './ProductDetail.css'
 
 const ProductDetail = ({ product, onBack, onAddToCart }) => {
   const { isLoading: cartLoading } = useCart()
   const [selectedTier, setSelectedTier] = useState(0)
-  const [quantity, setQuantity] = useState(product?.wholesalePrice?.[0]?.quantity || 1)
+
+  // Utility function to get image URL from JSON string or direct URL
+  const getImageUrl = (imageData) => {
+    if (!imageData) return null
+
+    // If it's already a URL string
+    if (typeof imageData === 'string' && imageData.startsWith('http')) {
+      return imageData
+    }
+
+    // If it's a JSON string, parse it
+    if (typeof imageData === 'string' && imageData.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(imageData)
+        return parsed.imageUrl || null
+      } catch (error) {
+        console.warn('Failed to parse image JSON:', error)
+        return null
+      }
+    }
+
+    return null
+  }
+  const [quantity, setQuantity] = useState(() => {
+    if (product?.wholesalePrice && product.wholesalePrice.length > 0) {
+      return product.wholesalePrice[0]?.quantity || 1
+    }
+    return 1
+  })
   const [activeTab, setActiveTab] = useState('description')
   const [showNotification, setShowNotification] = useState(false)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
@@ -38,17 +67,23 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   }
 
   const handleTierChange = (tierIndex) => {
+    if (!product?.wholesalePrice || tierIndex >= product.wholesalePrice.length) return
+
     setSelectedTier(tierIndex)
     const tier = product.wholesalePrice[tierIndex]
-    setQuantity(tier.quantity)
+    if (tier?.quantity) {
+      setQuantity(tier.quantity)
+    }
   }
 
   const handleQuantityChange = (newQuantity) => {
+    if (!product?.wholesalePrice || !product.wholesalePrice[selectedTier]) return
+
     const currentTier = product.wholesalePrice[selectedTier]
     const nextTier = product.wholesalePrice[selectedTier + 1]
 
     // Ensure quantity meets minimum for current tier
-    const minQuantity = currentTier.quantity
+    const minQuantity = currentTier?.quantity || 1
     const maxQuantity = nextTier ? nextTier.quantity - 1 : 999999
 
     if (newQuantity >= minQuantity && newQuantity <= maxQuantity) {
@@ -57,7 +92,47 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   }
 
   const getCurrentPrice = () => {
-    return product.wholesalePrice[selectedTier]?.price || product.price
+    console.log('🔍 getCurrentPrice DEBUG:')
+    console.log('product?.wholesalePrice:', product?.wholesalePrice)
+    console.log('selectedTier:', selectedTier)
+    console.log('product?.price:', product?.price)
+
+    // If no wholesale pricing, return original price
+    if (!product?.wholesalePrice) {
+      console.log('❌ No wholesale pricing, returning original price:', product?.price)
+      return product?.price || 0
+    }
+
+    // Parse wholesale price if it's a string
+    let wholesalePrices = product.wholesalePrice
+    if (typeof wholesalePrices === 'string') {
+      console.log('📝 Parsing string wholesalePrice:', wholesalePrices)
+      try {
+        wholesalePrices = JSON.parse(wholesalePrices)
+        console.log('✅ Parsed successfully:', wholesalePrices)
+      } catch (e) {
+        console.log('❌ Parse failed, returning original price:', product?.price)
+        return product?.price || 0
+      }
+    }
+
+    // Validate wholesale prices array
+    if (!Array.isArray(wholesalePrices) || wholesalePrices.length === 0) {
+      console.log('❌ Invalid array, returning original price:', product?.price)
+      return product?.price || 0
+    }
+
+    // Get selected tier data
+    const tierData = wholesalePrices[selectedTier]
+    console.log('🎯 tierData for selectedTier', selectedTier, ':', tierData)
+
+    if (!tierData || typeof tierData.price !== 'number') {
+      console.log('❌ Invalid tierData or price, returning original price:', product?.price)
+      return product?.price || 0
+    }
+
+    console.log('✅ Returning wholesale price:', tierData.price)
+    return tierData.price
   }
 
   const getTotalPrice = () => {
@@ -82,7 +157,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
         sku: product.sku
       },
       tier: selectedTier,
-      tierInfo: product.wholesalePrice[selectedTier],
+      tierInfo: product?.wholesalePrice?.[selectedTier] || null,
       quantity,
       unitPrice: getCurrentPrice(),
       totalPrice: getTotalPrice(),
@@ -116,9 +191,31 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   }
 
   const handleAddToCart = async () => {
+    console.log('🚀 handleAddToCart CALLED')
     try {
       // Pass the current unit price based on selected tier
       const unitPrice = getCurrentPrice()
+      console.log('💰 unitPrice from getCurrentPrice():', unitPrice)
+
+      // Get dealer info using utility function
+      const dealerInfo = getDealerInfo()
+
+      const cartBody = {
+        dealerId: dealerInfo?.accountId || "UNKNOWN_DEALER",
+        productId: product.id,
+        quantity: quantity,
+        unitPrice: unitPrice
+      }
+
+      console.log('🛒 === BODY THÊM VÀO GIỎ HÀNG ===')
+      console.log('Body:', cartBody)
+      console.log('Giá gốc:', product.price)
+      console.log('Giá sỉ (unitPrice):', unitPrice)
+      console.log('Tier:', selectedTier)
+      console.log('unitPrice type:', typeof unitPrice)
+      console.log('============================')
+
+      console.log('📞 Calling onAddToCart with:', {product: product.id, quantity, unitPrice})
       await onAddToCart(product, quantity, unitPrice)
       setShowNotification(true)
       setTimeout(() => {
@@ -127,6 +224,20 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
     } catch (error) {
       console.error('Failed to add to cart:', error)
     }
+  }
+
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url) return null
+
+    // Extract video ID from various YouTube URL formats
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+    const match = url.match(regex)
+
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`
+    }
+
+    return url // Return original URL if not YouTube
   }
 
   const getProductSpecs = () => {
@@ -175,11 +286,20 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
       <div className="grid lg:grid-cols-2 gap-8 mb-8">
         <div className="space-y-4">
           <div className="aspect-square bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-contain p-4"
-            />
+            {(() => {
+              const imageUrl = getImageUrl(product.image)
+              return imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-contain p-4"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-6xl text-slate-400">
+                  📱
+                </div>
+              )
+            })()}
           </div>
         </div>
 
@@ -233,7 +353,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                   <div className="grid gap-2">
                     {product.wholesalePrice.map((tier, index) => (
                       <button
-                        key={index}
+                        key={`tier-${index}`}
                         className={`p-3 rounded-lg border-2 text-left transition-all ${
                           selectedTier === index
                             ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
@@ -268,15 +388,15 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                     <button
                       className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
                       onClick={() => handleQuantityChange(quantity - 1)}
-                      disabled={quantity <= product.wholesalePrice[selectedTier].quantity}
+                      disabled={quantity <= (product?.wholesalePrice?.[selectedTier]?.quantity || 1)}
                     >
                       -
                     </button>
                     <input
                       type="number"
                       value={quantity}
-                      onChange={(e) => handleQuantityChange(parseInt(e.target.value) || product.wholesalePrice[selectedTier].quantity)}
-                      min={product.wholesalePrice[selectedTier].quantity}
+                      onChange={(e) => handleQuantityChange(parseInt(e.target.value) || (product?.wholesalePrice?.[selectedTier]?.quantity || 1))}
+                      min={product?.wholesalePrice?.[selectedTier]?.quantity || 1}
                       className="w-20 px-3 py-2 text-center border-0 bg-white dark:bg-slate-800 focus:outline-none"
                     />
                     <button
@@ -287,7 +407,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                     </button>
                   </div>
                   <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Tối thiểu: {product.wholesalePrice[selectedTier].quantity}
+                    Tối thiểu: {product?.wholesalePrice?.[selectedTier]?.quantity || 1}
                   </div>
                 </div>
 
@@ -307,7 +427,14 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                 {/* Add to Cart Button */}
                 <button
                   className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                  onClick={handleAddToCart}
+                  onClick={(e) => {
+                    console.log('🔴 BUTTON CLICKED!')
+                    console.log('Event:', e)
+                    console.log('cartLoading:', cartLoading)
+                    console.log('Button disabled?', cartLoading)
+                    e.preventDefault()
+                    handleAddToCart()
+                  }}
                   disabled={cartLoading}
                 >
                   {cartLoading ? (
@@ -386,24 +513,25 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                   {product.descriptions.map((desc, index) => {
                     if (desc.type === 'title') {
                       return (
-                        <h4 key={index} className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-6 mb-3 first:mt-0">
+                        <h4 key={`desc-title-${index}`} className="text-lg font-semibold text-slate-900 dark:text-slate-100 mt-6 mb-3 first:mt-0">
                           {desc.text}
                         </h4>
                       )
                     } else if (desc.type === 'image') {
-                      return (
-                        <div key={index} className="my-4 rounded-lg overflow-hidden">
+                      const imageUrl = getImageUrl(desc.imageUrl || desc.link?.url || desc.url)
+                      return imageUrl ? (
+                        <div key={`desc-image-${index}`} className="my-4 rounded-lg overflow-hidden">
                           <img
-                            src={desc.link.url}
+                            src={imageUrl}
                             alt="Mô tả sản phẩm"
                             className="w-full h-auto object-cover"
                           />
                         </div>
-                      )
+                      ) : null
                     } else if (desc.type === 'description') {
                       return (
                         <div
-                          key={index}
+                          key={`desc-text-${index}`}
                           className="prose prose-slate dark:prose-invert prose-lg"
                           dangerouslySetInnerHTML={{__html: desc.text}}
                         />
@@ -439,13 +567,18 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
               <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">Video sản phẩm</h3>
               <div className="grid gap-6">
                 {product.videos.map((video, index) => (
-                  <div key={index} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                  <div key={`video-${index}`} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                     <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">{video.title}</h4>
                     <p className="text-slate-600 dark:text-slate-400 mb-3 text-sm">{video.description}</p>
                     <div className="rounded-lg overflow-hidden">
-                      <video controls className="w-full h-auto max-w-4xl">
-                        <source src={video.videoUrl} type="video/mp4" />
-                      </video>
+                      <iframe
+                        src={getYouTubeEmbedUrl(video.videoUrl)}
+                        title={video.title}
+                        className="w-full h-64 md:h-80 lg:h-96"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
                     </div>
                   </div>
                 ))}

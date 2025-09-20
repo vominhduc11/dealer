@@ -323,15 +323,18 @@ export const productsAPI = {
 
 export const ordersAPI = {
   getAll: (params = {}) => api.get('/api/orders', params),
-  
+
   getById: (id) => api.get(`/api/orders/${id}`),
-  
-  create: (orderData) => api.post('/api/orders', orderData),
-  
+
+  create: (orderData) => {
+    console.log('🔥 ordersAPI.create called with:', orderData)
+    return api.post('/api/order/orders', orderData)
+  },
+
   update: (id, orderData) => api.put(`/api/orders/${id}`, orderData),
-  
+
   cancel: (id, reason) => api.patch(`/api/orders/${id}/cancel`, { reason }),
-  
+
   getStatus: (id) => api.get(`/api/orders/${id}/status`)
 }
 
@@ -350,20 +353,52 @@ export const warrantyAPI = {
 }
 
 export const cartAPI = {
-  add: (dealerId, productId, quantity, unitPrice) => api.post('/api/cart/add', {
-    dealerId,
-    productId,
-    quantity,
-    unitPrice
-  }),
+  add: (dealerId, productId, quantity, unitPrice) => {
+    console.log('🔥 cartAPI.add called with:', { dealerId, productId, quantity, unitPrice })
+    return api.post('/api/cart/add', {
+      dealerId,
+      productId,
+      quantity,
+      unitPrice
+    })
+  },
 
   getAll: (dealerId) => api.get(`/api/cart/dealer/${dealerId}`),
 
-  update: (dealerId, productId, quantity, unitPrice) => api.put(`/api/cart/dealer/${dealerId}/product/${productId}?quantity=${quantity}&unitPrice=${unitPrice}`),
+  increment: (dealerId, productId, unitPrice, increment = 1) => {
+    console.log('🔥 cartAPI.increment called with:', { dealerId, productId, unitPrice, increment })
+    return api.patch(`/api/cart/dealer/${dealerId}/product/${productId}/increment?unitPrice=${unitPrice}&increment=${increment}`)
+  },
 
-  remove: (dealerId, productId) => api.delete(`/api/cart/dealer/${dealerId}/product/${productId}`),
+  decrement: (dealerId, productId, unitPrice, decrement = 1) => {
+    console.log('🔥 cartAPI.decrement called with:', { dealerId, productId, unitPrice, decrement })
+    return api.patch(`/api/cart/dealer/${dealerId}/product/${productId}/decrement?unitPrice=${unitPrice}&decrement=${decrement}`)
+  },
 
-  clear: (dealerId) => api.delete(`/api/cart/clear?dealerId=${dealerId}`)
+  // New PATCH quantity endpoints
+  updateQuantity: {
+    increment: (cartId) => {
+      console.log('🔥 cartAPI.updateQuantity.increment called with cartId:', cartId)
+      return api.patch(`/api/cart/item/${cartId}/quantity?action=increment`)
+    },
+
+    decrement: (cartId) => {
+      console.log('🔥 cartAPI.updateQuantity.decrement called with cartId:', cartId)
+      return api.patch(`/api/cart/item/${cartId}/quantity?action=decrement`)
+    },
+
+    set: (cartId, quantity) => {
+      console.log('🔥 cartAPI.updateQuantity.set called with:', { cartId, quantity })
+      return api.patch(`/api/cart/item/${cartId}/quantity?action=set&quantity=${quantity}`)
+    }
+  },
+
+  remove: (cartId) => {
+    console.log('🔥 cartAPI.remove called with cartId:', cartId)
+    return api.delete(`/api/cart/item/${cartId}`)
+  },
+
+  clear: (dealerId) => api.delete(`/api/cart/dealer/${dealerId}`)
 }
 
 export const dealerAPI = {

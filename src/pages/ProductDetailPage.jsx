@@ -111,8 +111,12 @@ const ProductDetailPage = () => {
     navigate('/products')
   }
 
-  const handleAddToCart = (product, quantity) => {
-    addToCart(product, quantity)
+  const handleAddToCart = (product, quantity, unitPrice) => {
+    console.log('🔥 ProductDetailPage.handleAddToCart CALLED')
+    console.log('product.id:', product?.id)
+    console.log('quantity:', quantity)
+    console.log('unitPrice (received from ProductDetail):', unitPrice)
+    addToCart(product, quantity, unitPrice)
   }
 
   if (loading) {

@@ -9,6 +9,29 @@ const QuickViewModal = ({ product, isOpen, onClose, onViewDetails }) => {
   const { addToCart } = useCart()
   const { notifySuccess, notifyError } = useNotification()
 
+  // Utility function to get image URL from JSON string or direct URL
+  const getImageUrl = (imageData) => {
+    if (!imageData) return null
+
+    // If it's already a URL string
+    if (typeof imageData === 'string' && imageData.startsWith('http')) {
+      return imageData
+    }
+
+    // If it's a JSON string, parse it
+    if (typeof imageData === 'string' && imageData.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(imageData)
+        return parsed.imageUrl || null
+      } catch (error) {
+        console.warn('Failed to parse image JSON:', error)
+        return null
+      }
+    }
+
+    return null
+  }
+
   // Reset quantity when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -104,7 +127,7 @@ const QuickViewModal = ({ product, isOpen, onClose, onViewDetails }) => {
             <div className="space-y-4">
               <div className="relative aspect-square bg-white dark:bg-slate-700 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600">
                 <LazyImage
-                  src={product.image}
+                  src={getImageUrl(product.image)}
                   alt={product.name}
                   className="w-full h-full object-contain"
                   placeholder={<div className="text-6xl text-slate-400">📱</div>}
