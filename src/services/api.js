@@ -311,7 +311,7 @@ export const productsAPI = {
 
   getAvailableCount: (id) => api.get(`/api/product/${id}/available-count`),
 
-  getSerials: (productId, status = 'SOLD') => {
+  getSerials: (productId, status = 'SOLD_TO_DEALER') => {
     return api.get(`/api/product/${productId}/serials/status/${status}`)
   },
 

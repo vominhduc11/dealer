@@ -38,7 +38,7 @@ const WarrantyRegistration = () => {
   const [soldSerials, setSoldSerials] = useState([])
   const [loadingSerials, setLoadingSerials] = useState(false)
   const [selectedSerials, setSelectedSerials] = useState([])
-  const [serialViewMode, setSerialViewMode] = useState('SOLD') // 'AVAILABLE' or 'SOLD'
+  const [serialViewMode, setSerialViewMode] = useState('SOLD_TO_DEALER') // 'AVAILABLE' or 'SOLD_TO_DEALER'
 
   // Load saved customer info on mount
   useEffect(() => {
@@ -117,10 +117,10 @@ const WarrantyRegistration = () => {
       try {
         setLoadingSerials(true)
 
-        // Fetch both AVAILABLE and SOLD serials in parallel
+        // Fetch both AVAILABLE and SOLD_TO_DEALER serials in parallel
         const [availableData, soldData] = await Promise.all([
           fetchSerialsByStatus('AVAILABLE'),
-          fetchSerialsByStatus('SOLD')
+          fetchSerialsByStatus('SOLD_TO_DEALER')
         ])
 
         setAvailableSerials(availableData)
