@@ -5,7 +5,7 @@ const API_CONFIG = {
   BASE_URL: process.env.NODE_ENV === 'production' 
     ? 'https://api.tunezone.com'
     : 'http://localhost:8080',
-  TIMEOUT: 10000, // 10 seconds
+  TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000 // 1 second
 }
@@ -311,6 +311,10 @@ export const productsAPI = {
 
   getAvailableCount: (id) => api.get(`/api/product/${id}/available-count`),
 
+  getSerials: (productId, status = 'SOLD') => {
+    return api.get(`/api/product/${productId}/serials/status/${status}`)
+  },
+
   search: (query, filters = {}) => api.get('/api/products/search', {
     q: query,
     ...filters
@@ -322,9 +326,9 @@ export const productsAPI = {
 }
 
 export const ordersAPI = {
-  getAll: (params = {}) => api.get('/api/orders', params),
+  getAll: (params = {}) => api.get('/api/order/orders', params),
 
-  getById: (id) => api.get(`/api/orders/${id}`),
+  getById: (id) => api.get(`/api/order/orders/${id}`),
 
   create: (orderData) => {
     console.log('🔥 ordersAPI.create called with:', orderData)
@@ -339,7 +343,7 @@ export const ordersAPI = {
 }
 
 export const warrantyAPI = {
-  register: (warrantyData) => api.post('/api/warranty/register', warrantyData),
+  register: (warrantyData) => api.post('/api/warranty', warrantyData),
   
   getById: (id) => api.get(`/api/warranty/${id}`),
   
@@ -411,6 +415,10 @@ export const dealerAPI = {
   getOrders: (params = {}) => api.get('/api/dealer/orders', params),
 
   getSales: (params = {}) => api.get('/api/dealer/sales', params)
+}
+
+export const customerAPI = {
+  checkExists: (emailOrPhone) => api.get(`/api/user/customers/${encodeURIComponent(emailOrPhone)}/check-exists`)
 }
 
 // Error handler utility for components

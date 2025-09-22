@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { customerAPI, productsAPI, warrantyAPI, handleAPIError } from '../services/api'
 import './WarrantyRegistration.css'
 
 const SAMPLE_PRODUCTS = [
@@ -20,14 +21,129 @@ const WarrantyRegistration = () => {
     customerAddress: '',
     productId: '',
     purchaseDate: '',
-    serialNumber: '',
-    invoiceNumber: '',
-    notes: ''
+    serialNumbers: [''] // Array of serial numbers
   })
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
   const [warrantyCode, setWarrantyCode] = useState('')
+  const [isReturningCustomer, setIsReturningCustomer] = useState(false)
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResult, setSearchResult] = useState(null)
+  const [products, setProducts] = useState([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [availableSerials, setAvailableSerials] = useState([])
+  const [soldSerials, setSoldSerials] = useState([])
+  const [loadingSerials, setLoadingSerials] = useState(false)
+  const [selectedSerials, setSelectedSerials] = useState([])
+  const [serialViewMode, setSerialViewMode] = useState('SOLD') // 'AVAILABLE' or 'SOLD'
+
+  // Load saved customer info on mount
+  useEffect(() => {
+    const savedCustomerInfo = localStorage.getItem('customerInfo')
+    if (savedCustomerInfo) {
+      try {
+        const customerData = JSON.parse(savedCustomerInfo)
+        setFormData(prev => ({
+          ...prev,
+          customerName: customerData.customerName || '',
+          customerPhone: customerData.customerPhone || '',
+          customerEmail: customerData.customerEmail || '',
+          customerAddress: customerData.customerAddress || ''
+        }))
+        setIsReturningCustomer(true)
+      } catch (error) {
+        console.error('Error loading customer info:', error)
+      }
+    }
+  }, [])
+
+  // Fetch products from API on mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoadingProducts(true)
+        const response = await productsAPI.getAll({ fields: 'id,name' })
+
+        if (response.success && response.data) {
+          // Transform API data to match our product structure
+          const transformedProducts = response.data.map((product) => ({
+            id: product.id, // Use real ID from API
+            name: product.name,
+            warranty: 12 // Default warranty period
+          }))
+          setProducts(transformedProducts)
+        } else {
+          console.error('Failed to fetch products:', response)
+          // Fallback to sample products if API fails
+          setProducts(SAMPLE_PRODUCTS)
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+        handleAPIError(error, false)
+        // Fallback to sample products on error
+        setProducts(SAMPLE_PRODUCTS)
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
+
+  // Fetch serials when product is selected
+  useEffect(() => {
+    const fetchProductSerials = async () => {
+      if (!formData.productId) {
+        setAvailableSerials([])
+        setSoldSerials([])
+        setSelectedSerials([])
+        return
+      }
+
+      const fetchSerialsByStatus = async (status) => {
+        try {
+          const response = await productsAPI.getSerials(formData.productId, status)
+          return response.success && response.data ? response.data : []
+        } catch (error) {
+          console.error(`Error fetching ${status} serials:`, error)
+          handleAPIError(error, false)
+          return []
+        }
+      }
+
+      try {
+        setLoadingSerials(true)
+
+        // Fetch both AVAILABLE and SOLD serials in parallel
+        const [availableData, soldData] = await Promise.all([
+          fetchSerialsByStatus('AVAILABLE'),
+          fetchSerialsByStatus('SOLD')
+        ])
+
+        setAvailableSerials(availableData)
+        setSoldSerials(soldData)
+        setSelectedSerials([]) // Reset selected serials when product changes
+      } finally {
+        setLoadingSerials(false)
+      }
+    }
+
+    fetchProductSerials()
+  }, [formData.productId])
+
+  // Save customer info to localStorage
+  const saveCustomerInfo = (customerData) => {
+    const customerInfo = {
+      customerName: customerData.customerName,
+      customerPhone: customerData.customerPhone,
+      customerEmail: customerData.customerEmail,
+      customerAddress: customerData.customerAddress
+    }
+    localStorage.setItem('customerInfo', JSON.stringify(customerInfo))
+  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -40,6 +156,68 @@ const WarrantyRegistration = () => {
       setErrors(prev => ({
         ...prev,
         [name]: ''
+      }))
+    }
+  }
+
+  const handleSerialChange = (index, value) => {
+    setFormData(prev => ({
+      ...prev,
+      serialNumbers: prev.serialNumbers.map((serial, i) =>
+        i === index ? value : serial
+      )
+    }))
+
+    // Clear serial number errors
+    if (errors.serialNumbers) {
+      setErrors(prev => ({
+        ...prev,
+        serialNumbers: ''
+      }))
+    }
+  }
+
+  const addSerialField = () => {
+    setFormData(prev => ({
+      ...prev,
+      serialNumbers: [...prev.serialNumbers, '']
+    }))
+  }
+
+  const removeSerialField = (index) => {
+    if (formData.serialNumbers.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        serialNumbers: prev.serialNumbers.filter((_, i) => i !== index)
+      }))
+    }
+  }
+
+  const handleSerialSelect = (serialData) => {
+    if (selectedSerials.some(s => s.id === serialData.id)) {
+      // Deselect
+      setSelectedSerials(prev => prev.filter(s => s.id !== serialData.id))
+    } else {
+      // Select
+      setSelectedSerials(prev => [...prev, serialData])
+    }
+
+    // Update formData.serialNumbers to match selected serials
+    const newSerialNumbers = selectedSerials.some(s => s.id === serialData.id)
+      ? selectedSerials.filter(s => s.id !== serialData.id).map(s => s.serial)
+      : [...selectedSerials, serialData].map(s => s.serial)
+
+    // Ensure at least one empty field if no serials selected
+    setFormData(prev => ({
+      ...prev,
+      serialNumbers: newSerialNumbers.length > 0 ? newSerialNumbers : ['']
+    }))
+
+    // Clear serial errors
+    if (errors.serialNumbers) {
+      setErrors(prev => ({
+        ...prev,
+        serialNumbers: ''
       }))
     }
   }
@@ -102,20 +280,23 @@ const WarrantyRegistration = () => {
       }
     }
     
-    // Serial number validation
-    if (!formData.serialNumber.trim()) {
-      newErrors.serialNumber = 'Vui lòng nhập số serial'
-    } else if (formData.serialNumber.trim().length < 5) {
-      newErrors.serialNumber = 'Số serial phải có ít nhất 5 ký tự'
+    // Serial numbers validation
+    const validSerials = formData.serialNumbers.filter(serial => serial.trim() !== '')
+    if (validSerials.length === 0) {
+      newErrors.serialNumbers = 'Vui lòng nhập ít nhất một số serial'
+    } else {
+      // Check if all serial numbers are valid
+      const invalidSerials = validSerials.filter(serial => serial.trim().length < 5)
+      if (invalidSerials.length > 0) {
+        newErrors.serialNumbers = 'Tất cả số serial phải có ít nhất 5 ký tự'
+      }
+
+      // Check for duplicate serial numbers
+      const serialSet = new Set(validSerials.map(s => s.trim().toLowerCase()))
+      if (serialSet.size !== validSerials.length) {
+        newErrors.serialNumbers = 'Không được có số serial trùng lặp'
+      }
     }
-    
-    // Invoice number validation
-    if (!formData.invoiceNumber.trim()) {
-      newErrors.invoiceNumber = 'Vui lòng nhập số hóa đơn'
-    } else if (formData.invoiceNumber.trim().length < 3) {
-      newErrors.invoiceNumber = 'Số hóa đơn phải có ít nhất 3 ký tự'
-    }
-    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -128,42 +309,168 @@ const WarrantyRegistration = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
 
     setIsSubmitting(true)
-    
-    // Simulate API call
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const newWarrantyCode = generateWarrantyCode()
-      setWarrantyCode(newWarrantyCode)
-      setSubmitStatus('success')
-      
-      // Reset form
-      setFormData({
-        customerName: '',
-        customerPhone: '',
-        customerEmail: '',
-        customerAddress: '',
+      // Prepare warranty registration data
+      const validSerials = formData.serialNumbers.filter(serial => serial.trim() !== '')
+
+      const warrantyData = {
+        // Product information
+        productId: parseInt(formData.productId),
+        purchaseDate: formData.purchaseDate,
+        serialNumbers: validSerials,
+
+        // Customer information handling based on whether customer exists
+        customer: isReturningCustomer && searchResult?.exists ? {
+          // For existing customer: only send identifier to link with existing record
+          customerExists: true,
+          customerIdentifier: searchQuery.trim(), // phone or email used for search
+        } : {
+          // For new customer: send full customer data to create new record
+          customerExists: false,
+          customerInfo: {
+            name: formData.customerName.trim(),
+            phone: formData.customerPhone.trim(),
+            email: formData.customerEmail.trim(),
+            address: formData.customerAddress.trim()
+          }
+        }
+      }
+
+      console.log('🔥 Warranty registration data:', warrantyData)
+
+      const response = await warrantyAPI.register(warrantyData)
+
+      if (response.success) {
+        // Generate warranty code from first warranty or fallback
+        const firstWarranty = response.data.warranties?.[0]
+        const warrantyCode = firstWarranty?.warrantyCode || generateWarrantyCode()
+
+        setWarrantyCode(warrantyCode)
+        setSubmitStatus('success')
+
+        // Log warranty creation results
+        if (response.data.failedSerials?.length > 0) {
+          console.warn('Some serials failed to create warranty:', response.data.failedSerials)
+          // Could show a warning to user about failed serials
+        }
+
+        console.log(`✅ Created ${response.data.totalWarranties} warranties for customer: ${response.data.customerName}`)
+
+        // Save customer info for future use
+        saveCustomerInfo(formData)
+      } else {
+        throw new Error(response.message || 'Đăng ký bảo hành thất bại')
+      }
+
+      // Reset only product-related fields, keep customer info
+      setFormData(prev => ({
+        ...prev,
         productId: '',
         purchaseDate: '',
-        serialNumber: '',
-        invoiceNumber: '',
-        notes: ''
-      })
-    } catch {
+        serialNumbers: ['']
+      }))
+
+      setIsReturningCustomer(true)
+      setIsEditingCustomer(false)
+    } catch (error) {
+      console.error('Warranty registration failed:', error)
+      handleAPIError(error, false)
       setSubmitStatus('error')
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const handleEditCustomer = () => {
+    setIsEditingCustomer(!isEditingCustomer)
+  }
+
+  const handleNewCustomer = () => {
+    setFormData({
+      customerName: '',
+      customerPhone: '',
+      customerEmail: '',
+      customerAddress: '',
+      productId: '',
+      purchaseDate: '',
+      serialNumbers: ['']
+    })
+    setIsReturningCustomer(false)
+    setIsEditingCustomer(false)
+    setSearchQuery('')
+    setSearchResult(null)
+    localStorage.removeItem('customerInfo')
+  }
+
+  const handleCustomerSearch = async () => {
+    if (!searchQuery.trim()) {
+      alert('Vui lòng nhập số điện thoại hoặc email')
+      return
+    }
+
+    setIsSearching(true)
+
+    try {
+      const response = await customerAPI.checkExists(searchQuery.trim())
+
+      if (response.success && response.data.exists) {
+        const customerInfo = response.data.customerInfo
+
+        // Auto-fill customer information
+        setFormData(prev => ({
+          ...prev,
+          customerName: customerInfo.name || '',
+          customerPhone: customerInfo.phone || '',
+          customerEmail: customerInfo.email || '',
+          customerAddress: customerInfo.address || ''
+        }))
+
+        setSearchResult(response.data)
+        setIsReturningCustomer(true)
+        setIsEditingCustomer(false)
+
+        // Save to localStorage for future use
+        const customerData = {
+          customerName: customerInfo.name || '',
+          customerPhone: customerInfo.phone || '',
+          customerEmail: customerInfo.email || '',
+          customerAddress: customerInfo.address || ''
+        }
+        localStorage.setItem('customerInfo', JSON.stringify(customerData))
+
+      } else {
+        // Customer not found
+        setSearchResult({ exists: false })
+        setIsReturningCustomer(false)
+        setIsEditingCustomer(false)
+
+        // Clear form
+        setFormData(prev => ({
+          ...prev,
+          customerName: '',
+          customerPhone: '',
+          customerEmail: '',
+          customerAddress: ''
+        }))
+      }
+    } catch (error) {
+      console.error('Customer search failed:', error)
+      handleAPIError(error, false)
+      alert('Không thể tìm kiếm khách hàng. Vui lòng thử lại.')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   const getSelectedProduct = () => {
-    return SAMPLE_PRODUCTS.find(p => p.id === parseInt(formData.productId))
+    return products.find(p => p.id === parseInt(formData.productId))
   }
 
   const calculateWarrantyExpiry = () => {
@@ -224,9 +531,19 @@ const WarrantyRegistration = () => {
                   <span className="text-slate-600 dark:text-slate-400 font-medium">Hết hạn bảo hành:</span>
                   <span className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-3 py-1 rounded-lg font-bold">{calculateWarrantyExpiry()}</span>
                 </div>
-                <div className="flex justify-between items-center py-3">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Serial:</span>
-                  <span className="text-slate-900 dark:text-white font-semibold">{formData.serialNumber}</span>
+                <div className="py-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">
+                      Serial ({formData.serialNumbers.filter(s => s.trim()).length} sản phẩm):
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {formData.serialNumbers.filter(s => s.trim()).map((serial, index) => (
+                      <div key={index} className="bg-slate-50 dark:bg-slate-600 px-3 py-2 rounded text-sm font-mono">
+                        {index + 1}. {serial.trim()}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -300,9 +617,129 @@ const WarrantyRegistration = () => {
           </p>
         </div>
 
+        {/* Customer Search Section */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-8">
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
+            Tìm kiếm khách hàng
+          </h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            Nhập số điện thoại hoặc email để kiểm tra khách hàng đã có lịch sử mua hàng
+          </p>
+
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Nhập số điện thoại hoặc email khách hàng"
+              className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleCustomerSearch()
+                }
+              }}
+              disabled={isSearching}
+            />
+            <button
+              type="button"
+              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onClick={handleCustomerSearch}
+              disabled={isSearching}
+            >
+              {isSearching ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Đang tìm...
+                </>
+              ) : (
+                <>
+                  🔍 Tìm kiếm
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Search Results */}
+          {searchResult && (
+            <div className="mt-4">
+              {searchResult.exists ? (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-green-800 dark:text-green-200 font-semibold mb-2">
+                        ✅ Tìm thấy khách hàng!
+                      </h4>
+                      <p className="text-green-700 dark:text-green-300 text-sm mb-2">
+                        Tìm thấy bằng: <strong>{searchResult.matchedBy === 'phone' ? 'Số điện thoại' : 'Email'}</strong>
+                      </p>
+                      <p className="text-green-600 dark:text-green-400 text-sm">
+                        Thông tin khách hàng đã được tự động điền vào form bên dưới.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-orange-800 dark:text-orange-200 font-semibold mb-2">
+                        ℹ️ Khách hàng mới
+                      </h4>
+                      <p className="text-orange-700 dark:text-orange-300 text-sm">
+                        Không tìm thấy khách hàng với thông tin này. Vui lòng nhập đầy đủ thông tin khách hàng bên dưới.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            💡 <strong>Gợi ý:</strong> Nếu khách hàng đã mua hàng trước đây, thông tin sẽ được tự động điền
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-6">Thông tin khách hàng</h3>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Thông tin khách hàng</h3>
+
+              {isReturningCustomer && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">
+                    ✓ Khách hàng quay lại
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleEditCustomer}
+                    className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                  >
+                    {isEditingCustomer ? 'Hủy chỉnh sửa' : 'Chỉnh sửa thông tin'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNewCustomer}
+                    className="text-sm text-slate-600 dark:text-slate-400 hover:underline"
+                  >
+                    Khách hàng mới
+                  </button>
+                </div>
+              )}
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -321,7 +758,7 @@ const WarrantyRegistration = () => {
                       : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                   placeholder="Nhập họ tên đầy đủ"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
                   autoComplete="name"
                   aria-describedby={errors.customerName ? 'customerName-error' : undefined}
                   required
@@ -345,7 +782,7 @@ const WarrantyRegistration = () => {
                       : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                   placeholder="Nhập số điện thoại (VD: 0912345678)"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
                   autoComplete="tel"
                   aria-describedby={errors.customerPhone ? 'customerPhone-error' : undefined}
                   required
@@ -370,7 +807,7 @@ const WarrantyRegistration = () => {
                     : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                 } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                 placeholder="Nhập địa chỉ email (VD: example@gmail.com)"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
                 autoComplete="email"
                 aria-describedby={errors.customerEmail ? 'customerEmail-error' : undefined}
                 required
@@ -394,7 +831,7 @@ const WarrantyRegistration = () => {
                 } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                 placeholder="Nhập địa chỉ đầy đủ (số nhà, đường, phường, quận, thành phố)"
                 rows="3"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
                 autoComplete="address-line1"
                 aria-describedby={errors.customerAddress ? 'customerAddress-error' : undefined}
                 required
@@ -417,14 +854,16 @@ const WarrantyRegistration = () => {
                   value={formData.productId}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors duration-300 ${
-                    errors.productId 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' 
+                    errors.productId
+                      ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
                       : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || loadingProducts}
                 >
-                  <option value="">Chọn sản phẩm</option>
-                  {SAMPLE_PRODUCTS.map(product => (
+                  <option value="">
+                    {loadingProducts ? 'Đang tải sản phẩm...' : 'Chọn sản phẩm'}
+                  </option>
+                  {products.map(product => (
                     <option key={product.id} value={product.id}>
                       {product.name} (Bảo hành {product.warranty} tháng)
                     </option>
@@ -433,50 +872,155 @@ const WarrantyRegistration = () => {
                 {errors.productId && <span className="text-red-500 text-sm">{errors.productId}</span>}
               </div>
 
+              <div className="space-y-2">
+                <label htmlFor="purchaseDate" className="block text-sm font-medium text-slate-900 dark:text-white">
+                  Ngày mua *
+                </label>
+                <input
+                  type="date"
+                  id="purchaseDate"
+                  name="purchaseDate"
+                  value={formData.purchaseDate}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors duration-300 ${
+                    errors.purchaseDate
+                      ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
+                  } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
+                  disabled={isSubmitting}
+                  max={new Date().toISOString().split('T')[0]}
+                  required
+                />
+                {errors.purchaseDate && <span className="text-red-500 text-sm">{errors.purchaseDate}</span>}
+              </div>
+
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label htmlFor="serialNumber" className="block text-sm font-medium text-slate-900 dark:text-white">
-                  Số serial sản phẩm *
-                </label>
-                <input
-                  type="text"
-                  id="serialNumber"
-                  name="serialNumber"
-                  value={formData.serialNumber}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-colors duration-300 ${
-                    errors.serialNumber 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' 
-                      : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
-                  } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
-                  placeholder="Nhập số serial"
-                  disabled={isSubmitting}
-                />
-                {errors.serialNumber && <span className="text-red-500 text-sm">{errors.serialNumber}</span>}
+            <div className="space-y-6">
+              {/* Serial Numbers Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-900 dark:text-white">
+                    Số serial sản phẩm * ({selectedSerials.length} đã chọn)
+                  </label>
+                  {soldSerials.length > 0 && (
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      {soldSerials.length} serial đã bán
+                    </div>
+                  )}
+                </div>
+
+                {/* Sold Serials Selection */}
+                {formData.productId && (
+                  <div className="space-y-3">
+                    {loadingSerials ? (
+                      <div className="flex items-center justify-center py-8">
+                        <svg className="animate-spin w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span className="ml-2 text-slate-600 dark:text-slate-400">Đang tải serial numbers...</span>
+                      </div>
+                    ) : soldSerials.length > 0 ? (
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white mb-3">
+                          Chọn serial numbers đã bán:
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-lg p-3 bg-slate-50 dark:bg-slate-700">
+                          {soldSerials.map((serial) => (
+                            <label
+                              key={serial.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                                selectedSerials.some(s => s.id === serial.id)
+                                  ? 'bg-primary-100 dark:bg-primary-900/30 border-2 border-primary-500'
+                                  : 'bg-white dark:bg-slate-600 border border-slate-200 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-500'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedSerials.some(s => s.id === serial.id)}
+                                onChange={() => handleSerialSelect(serial)}
+                                className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-mono text-slate-900 dark:text-white truncate">
+                                  {serial.serial}
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  ID: {serial.id}
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                        <div className="text-orange-600 dark:text-orange-400 text-sm">
+                          ⚠️ Không có serial nào đã bán cho sản phẩm này
+                        </div>
+                        <div className="text-xs text-orange-500 dark:text-orange-500 mt-1">
+                          Chỉ có thể đăng ký bảo hành cho sản phẩm đã bán
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual Serial Input (fallback) */}
+                {!formData.productId && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-slate-900 dark:text-white">
+                      Nhập serial thủ công:
+                    </h4>
+                    {formData.serialNumbers.map((serial, index) => (
+                      <div key={index} className="flex gap-3 items-start">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={serial}
+                            onChange={(e) => handleSerialChange(index, e.target.value)}
+                            className={`w-full px-4 py-3 rounded-lg border transition-colors duration-300 ${
+                              errors.serialNumbers
+                                ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                                : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
+                            } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
+                            placeholder={`Nhập số serial ${index + 1}`}
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        {formData.serialNumbers.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSerialField(index)}
+                            className="mt-3 text-red-500 hover:text-red-700 transition-colors"
+                            disabled={isSubmitting}
+                            title="Xóa serial này"
+                          >
+                            ❌
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addSerialField}
+                      className="text-sm bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
+                      disabled={isSubmitting}
+                    >
+                      ➕ Thêm serial
+                    </button>
+                  </div>
+                )}
+
+                {errors.serialNumbers && (
+                  <span className="text-red-500 text-sm block">{errors.serialNumbers}</span>
+                )}
+
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  💡 <strong>Gợi ý:</strong> {formData.productId ? 'Chọn serial từ danh sách đã bán' : 'Chọn sản phẩm để xem serial đã bán'}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="invoiceNumber" className="block text-sm font-medium text-slate-900 dark:text-white">
-                  Số hóa đơn *
-                </label>
-                <input
-                  type="text"
-                  id="invoiceNumber"
-                  name="invoiceNumber"
-                  value={formData.invoiceNumber}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 rounded-lg border transition-colors duration-300 ${
-                    errors.invoiceNumber 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20' 
-                      : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
-                  } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
-                  placeholder="Nhập số hóa đơn"
-                  disabled={isSubmitting}
-                />
-                {errors.invoiceNumber && <span className="text-red-500 text-sm">{errors.invoiceNumber}</span>}
-              </div>
             </div>
 
             {formData.productId && formData.purchaseDate && (
@@ -501,21 +1045,6 @@ const WarrantyRegistration = () => {
               </div>
             )}
 
-            <div className="space-y-2">
-              <label htmlFor="notes" className="block text-sm font-medium text-slate-900 dark:text-white">
-                Ghi chú (tùy chọn)
-              </label>
-              <textarea
-                id="notes"
-                name="notes"
-                value={formData.notes}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors duration-300 resize-vertical"
-                placeholder="Thông tin bổ sung về sản phẩm hoặc tình trạng..."
-                rows="3"
-                disabled={isSubmitting}
-              />
-            </div>
           </div>
 
           <div className="flex justify-center mt-8">

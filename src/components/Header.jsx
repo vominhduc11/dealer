@@ -8,6 +8,7 @@ const Header = ({ dealerInfo, onLogout, currentPage }) => {
   const cartCount = getCartCount()
   const navItems = [
     { id: 'products', label: <strong>Sản phẩm</strong>, icon: '📱' },
+    { id: 'orders', label: 'Đơn hàng', icon: '📦' },
     { id: 'cart', label: 'Giỏ hàng', icon: '🛒', badge: cartCount > 0 ? cartCount : null },
     { id: 'warranty', label: 'Bảo hành', icon: '🛡️' }
   ]
@@ -16,6 +17,9 @@ const Header = ({ dealerInfo, onLogout, currentPage }) => {
     switch (itemId) {
       case 'products':
         navigate('/products')
+        break
+      case 'orders':
+        navigate('/orders')
         break
       case 'cart':
         navigate('/cart')

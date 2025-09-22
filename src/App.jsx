@@ -12,6 +12,7 @@ const PaymentCompletePage = lazy(() => import('./pages/PaymentCompletePage'))
 const QRPaymentPage = lazy(() => import('./pages/QRPaymentPage'))
 const WarrantyPage = lazy(() => import('./pages/WarrantyPage'))
 const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'))
+const OrdersPage = lazy(() => import('./pages/OrdersPage'))
 
 // Import new components and utilities
 import { ErrorBoundary } from './components/ErrorHandling'
@@ -110,6 +111,11 @@ function App() {
                   <Route path="order-success" element={
                     <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
                       <OrderSuccessPage />
+                    </Suspense>
+                  } />
+                  <Route path="orders" element={
+                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
+                      <OrdersPage />
                     </Suspense>
                   } />
                 </Route>
