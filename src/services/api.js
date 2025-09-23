@@ -309,10 +309,10 @@ export const productsAPI = {
 
   getBasicInfo: (id, fields = 'name,image') => api.get(`/api/product/${id}?fields=${fields}`),
 
-  getAvailableCount: (id) => api.get(`/api/product/${id}/available-count`),
+  getAvailableCount: (id) => api.get(`/api/product/product-serials/${id}/available-count`),
 
   getSerials: (productId, status = 'SOLD_TO_DEALER') => {
-    return api.get(`/api/product/${productId}/serials/status/${status}`)
+    return api.get(`/api/product/product-serials/${productId}/serials/status/${status}`)
   },
 
   search: (query, filters = {}) => api.get('/api/products/search', {
@@ -359,7 +359,7 @@ export const warrantyAPI = {
 export const cartAPI = {
   add: (dealerId, productId, quantity, unitPrice) => {
     console.log('🔥 cartAPI.add called with:', { dealerId, productId, quantity, unitPrice })
-    return api.post('/api/cart/add', {
+    return api.post('/api/cart/items', {
       dealerId,
       productId,
       quantity,
@@ -383,23 +383,23 @@ export const cartAPI = {
   updateQuantity: {
     increment: (cartId) => {
       console.log('🔥 cartAPI.updateQuantity.increment called with cartId:', cartId)
-      return api.patch(`/api/cart/item/${cartId}/quantity?action=increment`)
+      return api.patch(`/api/cart/items/${cartId}/quantity?action=increment`)
     },
 
     decrement: (cartId) => {
       console.log('🔥 cartAPI.updateQuantity.decrement called with cartId:', cartId)
-      return api.patch(`/api/cart/item/${cartId}/quantity?action=decrement`)
+      return api.patch(`/api/cart/items/${cartId}/quantity?action=decrement`)
     },
 
     set: (cartId, quantity) => {
       console.log('🔥 cartAPI.updateQuantity.set called with:', { cartId, quantity })
-      return api.patch(`/api/cart/item/${cartId}/quantity?action=set&quantity=${quantity}`)
+      return api.patch(`/api/cart/items/${cartId}/quantity?action=set&quantity=${quantity}`)
     }
   },
 
   remove: (cartId) => {
     console.log('🔥 cartAPI.remove called with cartId:', cartId)
-    return api.delete(`/api/cart/item/${cartId}`)
+    return api.delete(`/api/cart/items/${cartId}`)
   },
 
   clear: (dealerId) => api.delete(`/api/cart/dealer/${dealerId}`)
