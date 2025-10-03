@@ -177,7 +177,7 @@ export const CartProvider = ({ children }) => {
       console.log('💸 priceToUse calculation: unitPrice !== null?', unitPrice !== null, 'unitPrice:', unitPrice, 'product.price:', product.price)
 
       // Call API to add to cart
-      const requestBody = {
+      const _requestBody = {
         dealerId: dealerInfo.accountId,
         productId: product.id,
         quantity: quantity,

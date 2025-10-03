@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import Modal from 'react-modal'
 import LoginModal from './components/LoginModal'
 import DashboardLayout from './components/DashboardLayout'
 
@@ -25,6 +26,8 @@ function App() {
   const [dealerInfo, setDealerInfo] = useState(null)
 
   useEffect(() => {
+    // Set app element for react-modal
+    Modal.setAppElement('#root')
     const savedLogin = localStorage.getItem('dealerLogin')
     if (savedLogin) {
       const loginData = JSON.parse(savedLogin)
@@ -57,10 +60,16 @@ function App() {
     localStorage.setItem('dealerLogin', JSON.stringify(loginData))
   }
 
-  const handleLogout = () => {
-    setIsLoggedIn(false)
-    setDealerInfo(null)
-    localStorage.removeItem('dealerLogin')
+  const handleLogout = async () => {
+    try {
+      const { authAPI } = await import('./services/api')
+      await authAPI.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setIsLoggedIn(false)
+      setDealerInfo(null)
+    }
   }
 
   return (

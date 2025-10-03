@@ -79,7 +79,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
+        body: ['Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-in-out',
@@ -108,14 +110,14 @@ export default {
         },
       },
       screens: {
-        'sm': '640px',
-        'md': '768px', 
-        'lg': '1024px',
-        'xl': '1280px',
-        '2xl': '1536px',
-        '3xl': '1920px',
-        '4xl': '2560px',
-        '5xl': '3840px',
+        'sm': '640px',    // Mobile landscape
+        'md': '768px',    // Tablet
+        'lg': '1024px',   // Laptop
+        'xl': '1280px',   // Desktop
+        '2xl': '1536px',  // Large Desktop
+        '3xl': '1920px',  // Full HD
+        '4xl': '2560px',  // 2K
+        '5xl': '3840px',  // 4K
       },
       container: {
         center: true,

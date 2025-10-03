@@ -1,13 +1,20 @@
 // API Service for centralized HTTP requests and error handling
+import { API_CONFIG as CONFIG, ERROR_MESSAGES, STORAGE_KEYS } from '../constants'
 
 // API Configuration
-const API_CONFIG = {
-  BASE_URL: process.env.NODE_ENV === 'production' 
-    ? 'https://api.tunezone.com'
-    : 'http://localhost:8080',
-  TIMEOUT: 30000, // 30 seconds
-  RETRY_ATTEMPTS: 3,
-  RETRY_DELAY: 1000 // 1 second
+const API_CONFIG = CONFIG
+
+// Token refresh state management
+let isRefreshing = false
+let refreshSubscribers = []
+
+const subscribeTokenRefresh = (callback) => {
+  refreshSubscribers.push(callback)
+}
+
+const onTokenRefreshed = (token) => {
+  refreshSubscribers.forEach(callback => callback(token))
+  refreshSubscribers = []
 }
 
 // Custom Error Classes
@@ -68,14 +75,14 @@ export class ServerError extends APIError {
 // Utility function to get dealer info from localStorage
 export const getDealerInfo = () => {
   try {
-    const savedLogin = localStorage.getItem('dealerLogin')
+    const savedLogin = localStorage.getItem(STORAGE_KEYS.DEALER_LOGIN)
     if (savedLogin) {
       return JSON.parse(savedLogin)
     }
     return null
   } catch (e) {
     console.warn('Failed to parse saved login data:', e)
-    localStorage.removeItem('dealerLogin')
+    localStorage.removeItem(STORAGE_KEYS.DEALER_LOGIN)
     return null
   }
 }
@@ -117,9 +124,15 @@ const withRetry = async (fn, maxAttempts = API_CONFIG.RETRY_ATTEMPTS) => {
       return await fn()
     } catch (error) {
       lastError = error
-      
-      // Don't retry client errors (4xx) or authentication errors
-      if (error.status >= 400 && error.status < 500) {
+
+      // Don't retry client errors (4xx) EXCEPT 401 (will be handled by handleResponse)
+      // 401 needs to pass through to trigger token refresh logic
+      if (error.status >= 400 && error.status < 500 && error.status !== 401) {
+        throw error
+      }
+
+      // For 401, also throw immediately to let handleResponse handle it
+      if (error.status === 401) {
         throw error
       }
 
@@ -131,7 +144,7 @@ const withRetry = async (fn, maxAttempts = API_CONFIG.RETRY_ATTEMPTS) => {
       // Exponential backoff: 1s, 2s, 4s...
       const delay = API_CONFIG.RETRY_DELAY * Math.pow(2, attempt - 1)
       await new Promise(resolve => setTimeout(resolve, delay))
-      
+
       console.warn(`API request failed, retrying... (attempt ${attempt}/${maxAttempts})`)
     }
   }
@@ -139,8 +152,52 @@ const withRetry = async (fn, maxAttempts = API_CONFIG.RETRY_ATTEMPTS) => {
   throw lastError
 }
 
-// Response handler with error mapping
-const handleResponse = async (response) => {
+// Refresh token function
+const refreshAccessToken = async () => {
+  try {
+    const dealerInfo = getDealerInfo()
+    if (!dealerInfo?.refreshToken) {
+      throw new AuthenticationError('No refresh token available')
+    }
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        token: dealerInfo.refreshToken
+      })
+    })
+
+    if (!response.ok) {
+      throw new AuthenticationError('Refresh token expired')
+    }
+
+    const data = await response.json()
+
+    // Update tokens in localStorage
+    const updatedDealerInfo = {
+      ...dealerInfo,
+      accessToken: data.accessToken,
+      refreshToken: dealerInfo.refreshToken, // Keep the same refresh token
+      username: data.username,
+      roles: data.roles
+    }
+
+    localStorage.setItem(STORAGE_KEYS.DEALER_LOGIN, JSON.stringify(updatedDealerInfo))
+
+    return updatedDealerInfo.accessToken
+  } catch (error) {
+    // Refresh failed, clear auth and redirect to login
+    localStorage.removeItem(STORAGE_KEYS.DEALER_LOGIN)
+    window.location.href = '/'
+    throw error
+  }
+}
+
+// Response handler with error mapping and auto token refresh
+const handleResponse = async (response, originalRequest = null) => {
   if (!response.ok) {
     let errorMessage = 'Request failed'
     let errorData = null
@@ -162,9 +219,50 @@ const handleResponse = async (response) => {
           errorData
         )
       case 401:
-        // Clear stored authentication on 401
-        localStorage.removeItem('dealerLogin')
-        throw new AuthenticationError(errorMessage, errorData)
+        // Don't retry refresh token endpoint itself
+        if (originalRequest?.url?.includes('/auth/refresh')) {
+          localStorage.removeItem(STORAGE_KEYS.DEALER_LOGIN)
+          window.location.href = '/'
+          throw new AuthenticationError(errorMessage, errorData)
+        }
+
+        // Handle token refresh with queue mechanism to prevent multiple refresh calls
+        if (!isRefreshing) {
+          isRefreshing = true
+
+          try {
+            const newToken = await refreshAccessToken()
+            isRefreshing = false
+            onTokenRefreshed(newToken)
+
+            // Retry original request with new token
+            if (originalRequest) {
+              originalRequest.headers['Authorization'] = `Bearer ${newToken}`
+              const retryResponse = await fetch(originalRequest.url, originalRequest)
+              return await handleResponse(retryResponse, null) // Don't retry again on 401
+            }
+          } catch (refreshError) {
+            isRefreshing = false
+            refreshSubscribers = []
+            throw new AuthenticationError('Session expired. Please login again.', refreshError)
+          }
+        } else {
+          // Token is being refreshed, wait for it
+          return new Promise((resolve, reject) => {
+            subscribeTokenRefresh((newToken) => {
+              if (originalRequest) {
+                originalRequest.headers['Authorization'] = `Bearer ${newToken}`
+                fetch(originalRequest.url, originalRequest)
+                  .then(response => handleResponse(response, null))
+                  .then(resolve)
+                  .catch(reject)
+              } else {
+                reject(new AuthenticationError('Token refresh failed'))
+              }
+            })
+          })
+        }
+        break
       case 403:
         throw new AuthorizationError(errorMessage, errorData)
       case 404:
@@ -209,18 +307,64 @@ const httpRequest = async (endpoint, options = {}) => {
     const response = await withTimeout(
       withRetry(() => fetch(url, config))
     )
-    return await handleResponse(response)
-  } catch (error) {
-    // Wrap fetch errors as NetworkError
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new NetworkError('Network request failed. Please check your connection.', error)
+
+    // Pass request config to handleResponse for retry on 401
+    const requestInfo = {
+      url,
+      method: config.method || 'GET',
+      headers: config.headers,
+      body: config.body
     }
-    
+
+    return await handleResponse(response, requestInfo)
+  } catch (error) {
+    // Handle CORS errors - usually means authentication issue
+    // CORS errors manifest as TypeError with 'Failed to fetch' or network errors
+    if (error instanceof TypeError && (
+      error.message.includes('fetch') ||
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError') ||
+      error.message.includes('CORS')
+    )) {
+      // Check if we have dealer info - if yes, token might be expired
+      const dealerInfo = getDealerInfo()
+      if (dealerInfo) {
+        // Try to refresh token first
+        try {
+          await refreshAccessToken()
+          // Retry the original request after successful refresh
+          const retryResponse = await fetch(url, {
+            ...config,
+            headers: {
+              ...config.headers,
+              'Authorization': `Bearer ${getDealerInfo()?.accessToken}`
+            }
+          })
+          const requestInfo = {
+            url,
+            method: config.method || 'GET',
+            headers: config.headers,
+            body: config.body
+          }
+          return await handleResponse(retryResponse, requestInfo)
+        } catch (refreshError) {
+          // Refresh failed, redirect to login
+          localStorage.removeItem(STORAGE_KEYS.DEALER_LOGIN)
+          window.location.href = '/'
+          throw new AuthenticationError('Session expired. Please login again.', refreshError)
+        }
+      } else {
+        // No dealer info, redirect to login
+        window.location.href = '/'
+        throw new NetworkError('Network request failed. Please check your connection.', error)
+      }
+    }
+
     // Re-throw known errors
     if (error instanceof APIError) {
       throw error
     }
-    
+
     // Wrap unknown errors
     throw new APIError('An unexpected error occurred', 500, 'UNKNOWN_ERROR', error)
   }
@@ -287,9 +431,20 @@ export const authAPI = {
     userType: 'dealer'
   }),
 
-  logout: () => {
-    localStorage.removeItem('dealerLogin')
-    return Promise.resolve()
+  logout: async () => {
+    try {
+      // Call logout API to invalidate token on server
+      await api.post('/api/auth/logout')
+    } catch (error) {
+      // Continue with logout even if API call fails
+      console.warn('Logout API call failed:', error)
+    } finally {
+      // Always clear local data
+      localStorage.removeItem(STORAGE_KEYS.DEALER_LOGIN)
+      // Reset refresh state
+      isRefreshing = false
+      refreshSubscribers = []
+    }
   },
 
   refreshToken: () => api.post('/api/auth/refresh'),
@@ -311,8 +466,12 @@ export const productsAPI = {
 
   getAvailableCount: (id) => api.get(`/api/product/product-serials/${id}/available-count`),
 
-  getSerials: (productId, status = 'SOLD_TO_DEALER') => {
+  getSerials: (productId, status = 'ALLOCATED_TO_DEALER') => {
     return api.get(`/api/product/product-serials/${productId}/serials/status/${status}`)
+  },
+
+  getSerialsByDealer: (productId, dealerId) => {
+    return api.get(`/api/product/product-serials/product/${productId}/dealer/${dealerId}/serials`)
   },
 
   search: (query, filters = {}) => api.get('/api/products/search', {
@@ -330,8 +489,11 @@ export const ordersAPI = {
 
   getById: (id) => api.get(`/api/order/orders/${id}`),
 
+  getByDealer: (dealerId, params = {}) => api.get(`/api/order/orders/dealer/${dealerId}`, params),
+
+  getPurchasedProducts: (dealerId) => api.get(`/api/order/orders/dealer/${dealerId}/purchased-products`),
+
   create: (orderData) => {
-    console.log('🔥 ordersAPI.create called with:', orderData)
     return api.post('/api/order/orders', orderData)
   },
 
@@ -358,7 +520,6 @@ export const warrantyAPI = {
 
 export const cartAPI = {
   add: (dealerId, productId, quantity, unitPrice) => {
-    console.log('🔥 cartAPI.add called with:', { dealerId, productId, quantity, unitPrice })
     return api.post('/api/cart/items', {
       dealerId,
       productId,
@@ -370,35 +531,29 @@ export const cartAPI = {
   getAll: (dealerId) => api.get(`/api/cart/dealer/${dealerId}`),
 
   increment: (dealerId, productId, unitPrice, increment = 1) => {
-    console.log('🔥 cartAPI.increment called with:', { dealerId, productId, unitPrice, increment })
     return api.patch(`/api/cart/dealer/${dealerId}/product/${productId}/increment?unitPrice=${unitPrice}&increment=${increment}`)
   },
 
   decrement: (dealerId, productId, unitPrice, decrement = 1) => {
-    console.log('🔥 cartAPI.decrement called with:', { dealerId, productId, unitPrice, decrement })
     return api.patch(`/api/cart/dealer/${dealerId}/product/${productId}/decrement?unitPrice=${unitPrice}&decrement=${decrement}`)
   },
 
   // New PATCH quantity endpoints
   updateQuantity: {
     increment: (cartId) => {
-      console.log('🔥 cartAPI.updateQuantity.increment called with cartId:', cartId)
       return api.patch(`/api/cart/items/${cartId}/quantity?action=increment`)
     },
 
     decrement: (cartId) => {
-      console.log('🔥 cartAPI.updateQuantity.decrement called with cartId:', cartId)
       return api.patch(`/api/cart/items/${cartId}/quantity?action=decrement`)
     },
 
     set: (cartId, quantity) => {
-      console.log('🔥 cartAPI.updateQuantity.set called with:', { cartId, quantity })
       return api.patch(`/api/cart/items/${cartId}/quantity?action=set&quantity=${quantity}`)
     }
   },
 
   remove: (cartId) => {
-    console.log('🔥 cartAPI.remove called with cartId:', cartId)
     return api.delete(`/api/cart/items/${cartId}`)
   },
 
@@ -414,12 +569,11 @@ export const dealerAPI = {
 
   getOrders: (params = {}) => api.get('/api/dealer/orders', params),
 
-  getSales: (params = {}) => api.get('/api/dealer/sales', params)
+  getSales: (params = {}) => api.get('/api/dealer/sales', params),
+
+  getById: (dealerId, fields = 'companyName') => api.get(`/api/user/dealer/${dealerId}?fields=${fields}`)
 }
 
-export const customerAPI = {
-  checkExists: (emailOrPhone) => api.get(`/api/user/customers/${encodeURIComponent(emailOrPhone)}/check-exists`)
-}
 
 // Error handler utility for components
 export const handleAPIError = (error, showNotification = true) => {
@@ -448,14 +602,6 @@ export const handleAPIError = (error, showNotification = true) => {
     type: error.name,
     status: error.status,
     code: error.code
-  }
-}
-
-// Request interceptor for debugging (development only)
-if (process.env.NODE_ENV === 'development') {
-  const originalFetch = window.fetch
-  window.fetch = function(...args) {
-    return originalFetch.apply(this, args)
   }
 }
 

@@ -76,7 +76,7 @@ const Cart = ({ cart, onUpdateItem, onRemoveItem, onCheckout, totalAmount, isLoa
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
-          {cart.map((item, index) => (
+          {cart.map((item) => (
             <div key={`cart-item-${item.cartId || item.id}`} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-all duration-300 hover:shadow-md">
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Product Image */}

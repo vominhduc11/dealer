@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { customerAPI, productsAPI, warrantyAPI, handleAPIError } from '../services/api'
+import { productsAPI, warrantyAPI, ordersAPI, getDealerInfo, handleAPIError } from '../services/api'
 import './WarrantyRegistration.css'
 
 const SAMPLE_PRODUCTS = [
@@ -27,45 +27,29 @@ const WarrantyRegistration = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
   const [warrantyCode, setWarrantyCode] = useState('')
-  const [isReturningCustomer, setIsReturningCustomer] = useState(false)
-  const [isEditingCustomer, setIsEditingCustomer] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchResult, setSearchResult] = useState(null)
   const [products, setProducts] = useState([])
   const [loadingProducts, setLoadingProducts] = useState(true)
-  const [availableSerials, setAvailableSerials] = useState([])
+  const [_availableSerials, setAvailableSerials] = useState([])
   const [soldSerials, setSoldSerials] = useState([])
   const [loadingSerials, setLoadingSerials] = useState(false)
   const [selectedSerials, setSelectedSerials] = useState([])
-  const [serialViewMode, setSerialViewMode] = useState('SOLD_TO_DEALER') // 'AVAILABLE' or 'SOLD_TO_DEALER'
+  const [_serialViewMode, _setSerialViewMode] = useState('ALLOCATED_TO_DEALER') // 'IN_STOCK' or 'ALLOCATED_TO_DEALER'
 
-  // Load saved customer info on mount
-  useEffect(() => {
-    const savedCustomerInfo = localStorage.getItem('customerInfo')
-    if (savedCustomerInfo) {
-      try {
-        const customerData = JSON.parse(savedCustomerInfo)
-        setFormData(prev => ({
-          ...prev,
-          customerName: customerData.customerName || '',
-          customerPhone: customerData.customerPhone || '',
-          customerEmail: customerData.customerEmail || '',
-          customerAddress: customerData.customerAddress || ''
-        }))
-        setIsReturningCustomer(true)
-      } catch (error) {
-        console.error('Error loading customer info:', error)
-      }
-    }
-  }, [])
 
-  // Fetch products from API on mount
+  // Fetch purchased products from API on mount
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchPurchasedProducts = async () => {
       try {
         setLoadingProducts(true)
-        const response = await productsAPI.getAll({ fields: 'id,name' })
+        const dealerInfo = getDealerInfo()
+
+        if (!dealerInfo?.accountId) {
+          console.error('No dealer info found')
+          setProducts([])
+          return
+        }
+
+        const response = await ordersAPI.getPurchasedProducts(dealerInfo.accountId)
 
         if (response.success && response.data) {
           // Transform API data to match our product structure
@@ -76,21 +60,19 @@ const WarrantyRegistration = () => {
           }))
           setProducts(transformedProducts)
         } else {
-          console.error('Failed to fetch products:', response)
-          // Fallback to sample products if API fails
-          setProducts(SAMPLE_PRODUCTS)
+          console.error('Failed to fetch purchased products:', response)
+          setProducts([])
         }
       } catch (error) {
-        console.error('Error fetching products:', error)
+        console.error('Error fetching purchased products:', error)
         handleAPIError(error, false)
-        // Fallback to sample products on error
-        setProducts(SAMPLE_PRODUCTS)
+        setProducts([])
       } finally {
         setLoadingProducts(false)
       }
     }
 
-    fetchProducts()
+    fetchPurchasedProducts()
   }, [])
 
   // Fetch serials when product is selected
@@ -103,29 +85,32 @@ const WarrantyRegistration = () => {
         return
       }
 
-      const fetchSerialsByStatus = async (status) => {
-        try {
-          const response = await productsAPI.getSerials(formData.productId, status)
-          return response.success && response.data ? response.data : []
-        } catch (error) {
-          console.error(`Error fetching ${status} serials:`, error)
-          handleAPIError(error, false)
-          return []
-        }
-      }
-
       try {
         setLoadingSerials(true)
+        const dealerInfo = getDealerInfo()
 
-        // Fetch both AVAILABLE and SOLD_TO_DEALER serials in parallel
-        const [availableData, soldData] = await Promise.all([
-          fetchSerialsByStatus('AVAILABLE'),
-          fetchSerialsByStatus('SOLD_TO_DEALER')
-        ])
+        if (!dealerInfo?.accountId) {
+          console.error('No dealer info found')
+          setSoldSerials([])
+          return
+        }
 
-        setAvailableSerials(availableData)
-        setSoldSerials(soldData)
+        // Fetch serials allocated to this dealer for this product
+        const response = await productsAPI.getSerialsByDealer(formData.productId, dealerInfo.accountId)
+
+        if (response.success && response.data) {
+          setSoldSerials(response.data)
+        } else {
+          console.error('Failed to fetch dealer serials:', response)
+          setSoldSerials([])
+        }
+
+        setAvailableSerials([]) // Not needed anymore as we only show dealer serials
         setSelectedSerials([]) // Reset selected serials when product changes
+      } catch (error) {
+        console.error('Error fetching dealer serials:', error)
+        handleAPIError(error, false)
+        setSoldSerials([])
       } finally {
         setLoadingSerials(false)
       }
@@ -134,16 +119,6 @@ const WarrantyRegistration = () => {
     fetchProductSerials()
   }, [formData.productId])
 
-  // Save customer info to localStorage
-  const saveCustomerInfo = (customerData) => {
-    const customerInfo = {
-      customerName: customerData.customerName,
-      customerPhone: customerData.customerPhone,
-      customerEmail: customerData.customerEmail,
-      customerAddress: customerData.customerAddress
-    }
-    localStorage.setItem('customerInfo', JSON.stringify(customerInfo))
-  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -160,7 +135,7 @@ const WarrantyRegistration = () => {
     }
   }
 
-  const handleSerialChange = (index, value) => {
+  const _handleSerialChange = (index, value) => {
     setFormData(prev => ({
       ...prev,
       serialNumbers: prev.serialNumbers.map((serial, i) =>
@@ -177,14 +152,14 @@ const WarrantyRegistration = () => {
     }
   }
 
-  const addSerialField = () => {
+  const _addSerialField = () => {
     setFormData(prev => ({
       ...prev,
       serialNumbers: [...prev.serialNumbers, '']
     }))
   }
 
-  const removeSerialField = (index) => {
+  const _removeSerialField = (index) => {
     if (formData.serialNumbers.length > 1) {
       setFormData(prev => ({
         ...prev,
@@ -321,25 +296,14 @@ const WarrantyRegistration = () => {
       const validSerials = formData.serialNumbers.filter(serial => serial.trim() !== '')
 
       const warrantyData = {
-        // Product information
         productId: parseInt(formData.productId),
         purchaseDate: formData.purchaseDate,
         serialNumbers: validSerials,
-
-        // Customer information handling based on whether customer exists
-        customer: isReturningCustomer && searchResult?.exists ? {
-          // For existing customer: only send identifier to link with existing record
-          customerExists: true,
-          customerIdentifier: searchQuery.trim(), // phone or email used for search
-        } : {
-          // For new customer: send full customer data to create new record
-          customerExists: false,
-          customerInfo: {
-            name: formData.customerName.trim(),
-            phone: formData.customerPhone.trim(),
-            email: formData.customerEmail.trim(),
-            address: formData.customerAddress.trim()
-          }
+        customer: {
+          name: formData.customerName.trim(),
+          phone: formData.customerPhone.trim(),
+          email: formData.customerEmail.trim(),
+          address: formData.customerAddress.trim()
         }
       }
 
@@ -363,8 +327,6 @@ const WarrantyRegistration = () => {
 
         console.log(`✅ Created ${response.data.totalWarranties} warranties for customer: ${response.data.customerName}`)
 
-        // Save customer info for future use
-        saveCustomerInfo(formData)
       } else {
         throw new Error(response.message || 'Đăng ký bảo hành thất bại')
       }
@@ -377,8 +339,6 @@ const WarrantyRegistration = () => {
         serialNumbers: ['']
       }))
 
-      setIsReturningCustomer(true)
-      setIsEditingCustomer(false)
     } catch (error) {
       console.error('Warranty registration failed:', error)
       handleAPIError(error, false)
@@ -388,86 +348,8 @@ const WarrantyRegistration = () => {
     }
   }
 
-  const handleEditCustomer = () => {
-    setIsEditingCustomer(!isEditingCustomer)
-  }
 
-  const handleNewCustomer = () => {
-    setFormData({
-      customerName: '',
-      customerPhone: '',
-      customerEmail: '',
-      customerAddress: '',
-      productId: '',
-      purchaseDate: '',
-      serialNumbers: ['']
-    })
-    setIsReturningCustomer(false)
-    setIsEditingCustomer(false)
-    setSearchQuery('')
-    setSearchResult(null)
-    localStorage.removeItem('customerInfo')
-  }
 
-  const handleCustomerSearch = async () => {
-    if (!searchQuery.trim()) {
-      alert('Vui lòng nhập số điện thoại hoặc email')
-      return
-    }
-
-    setIsSearching(true)
-
-    try {
-      const response = await customerAPI.checkExists(searchQuery.trim())
-
-      if (response.success && response.data.exists) {
-        const customerInfo = response.data.customerInfo
-
-        // Auto-fill customer information
-        setFormData(prev => ({
-          ...prev,
-          customerName: customerInfo.name || '',
-          customerPhone: customerInfo.phone || '',
-          customerEmail: customerInfo.email || '',
-          customerAddress: customerInfo.address || ''
-        }))
-
-        setSearchResult(response.data)
-        setIsReturningCustomer(true)
-        setIsEditingCustomer(false)
-
-        // Save to localStorage for future use
-        const customerData = {
-          customerName: customerInfo.name || '',
-          customerPhone: customerInfo.phone || '',
-          customerEmail: customerInfo.email || '',
-          customerAddress: customerInfo.address || ''
-        }
-        localStorage.setItem('customerInfo', JSON.stringify(customerData))
-
-      } else {
-        // Customer not found
-        setSearchResult({ exists: false })
-        setIsReturningCustomer(false)
-        setIsEditingCustomer(false)
-
-        // Clear form
-        setFormData(prev => ({
-          ...prev,
-          customerName: '',
-          customerPhone: '',
-          customerEmail: '',
-          customerAddress: ''
-        }))
-      }
-    } catch (error) {
-      console.error('Customer search failed:', error)
-      handleAPIError(error, false)
-      alert('Không thể tìm kiếm khách hàng. Vui lòng thử lại.')
-    } finally {
-      setIsSearching(false)
-    }
-  }
 
   const getSelectedProduct = () => {
     return products.find(p => p.id === parseInt(formData.productId))
@@ -617,128 +499,11 @@ const WarrantyRegistration = () => {
           </p>
         </div>
 
-        {/* Customer Search Section */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-8">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
-            Tìm kiếm khách hàng
-          </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            Nhập số điện thoại hoặc email để kiểm tra khách hàng đã có lịch sử mua hàng
-          </p>
-
-          <div className="flex gap-4">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Nhập số điện thoại hoặc email khách hàng"
-              className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleCustomerSearch()
-                }
-              }}
-              disabled={isSearching}
-            />
-            <button
-              type="button"
-              className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              onClick={handleCustomerSearch}
-              disabled={isSearching}
-            >
-              {isSearching ? (
-                <>
-                  <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Đang tìm...
-                </>
-              ) : (
-                <>
-                  🔍 Tìm kiếm
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Search Results */}
-          {searchResult && (
-            <div className="mt-4">
-              {searchResult.exists ? (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-green-800 dark:text-green-200 font-semibold mb-2">
-                        ✅ Tìm thấy khách hàng!
-                      </h4>
-                      <p className="text-green-700 dark:text-green-300 text-sm mb-2">
-                        Tìm thấy bằng: <strong>{searchResult.matchedBy === 'phone' ? 'Số điện thoại' : 'Email'}</strong>
-                      </p>
-                      <p className="text-green-600 dark:text-green-400 text-sm">
-                        Thông tin khách hàng đã được tự động điền vào form bên dưới.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-orange-800 dark:text-orange-200 font-semibold mb-2">
-                        ℹ️ Khách hàng mới
-                      </h4>
-                      <p className="text-orange-700 dark:text-orange-300 text-sm">
-                        Không tìm thấy khách hàng với thông tin này. Vui lòng nhập đầy đủ thông tin khách hàng bên dưới.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-            💡 <strong>Gợi ý:</strong> Nếu khách hàng đã mua hàng trước đây, thông tin sẽ được tự động điền
-          </div>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white">Thông tin khách hàng</h3>
-
-              {isReturningCustomer && (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">
-                    ✓ Khách hàng quay lại
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleEditCustomer}
-                    className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-                  >
-                    {isEditingCustomer ? 'Hủy chỉnh sửa' : 'Chỉnh sửa thông tin'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNewCustomer}
-                    className="text-sm text-slate-600 dark:text-slate-400 hover:underline"
-                  >
-                    Khách hàng mới
-                  </button>
-                </div>
-              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -758,7 +523,7 @@ const WarrantyRegistration = () => {
                       : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                   placeholder="Nhập họ tên đầy đủ"
-                  disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
+                  disabled={isSubmitting}
                   autoComplete="name"
                   aria-describedby={errors.customerName ? 'customerName-error' : undefined}
                   required
@@ -782,7 +547,7 @@ const WarrantyRegistration = () => {
                       : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                   placeholder="Nhập số điện thoại (VD: 0912345678)"
-                  disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
+                  disabled={isSubmitting}
                   autoComplete="tel"
                   aria-describedby={errors.customerPhone ? 'customerPhone-error' : undefined}
                   required
@@ -807,7 +572,7 @@ const WarrantyRegistration = () => {
                     : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                 } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                 placeholder="Nhập địa chỉ email (VD: example@gmail.com)"
-                disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
+                disabled={isSubmitting}
                 autoComplete="email"
                 aria-describedby={errors.customerEmail ? 'customerEmail-error' : undefined}
                 required
@@ -831,7 +596,7 @@ const WarrantyRegistration = () => {
                 } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
                 placeholder="Nhập địa chỉ đầy đủ (số nhà, đường, phường, quận, thành phố)"
                 rows="3"
-                disabled={isSubmitting || (isReturningCustomer && !isEditingCustomer)}
+                disabled={isSubmitting}
                 autoComplete="address-line1"
                 aria-describedby={errors.customerAddress ? 'customerAddress-error' : undefined}
                 required
@@ -861,7 +626,7 @@ const WarrantyRegistration = () => {
                   disabled={isSubmitting || loadingProducts}
                 >
                   <option value="">
-                    {loadingProducts ? 'Đang tải sản phẩm...' : 'Chọn sản phẩm'}
+                    {loadingProducts ? 'Đang tải sản phẩm đã mua...' : products.length === 0 ? 'Chưa có sản phẩm nào đã mua' : 'Chọn sản phẩm đã mua'}
                   </option>
                   {products.map(product => (
                     <option key={product.id} value={product.id}>
@@ -905,7 +670,7 @@ const WarrantyRegistration = () => {
                   </label>
                   {soldSerials.length > 0 && (
                     <div className="text-sm text-slate-600 dark:text-slate-400">
-                      {soldSerials.length} serial đã bán
+                      {soldSerials.length} serial đã phân bổ
                     </div>
                   )}
                 </div>
@@ -923,7 +688,7 @@ const WarrantyRegistration = () => {
                     ) : soldSerials.length > 0 ? (
                       <div>
                         <h4 className="text-sm font-medium text-slate-900 dark:text-white mb-3">
-                          Chọn serial numbers đã bán:
+                          Chọn serial numbers đã phân bổ cho dealer:
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-lg p-3 bg-slate-50 dark:bg-slate-700">
                           {soldSerials.map((serial) => (
@@ -946,7 +711,7 @@ const WarrantyRegistration = () => {
                                   {serial.serial}
                                 </div>
                                 <div className="text-xs text-slate-500 dark:text-slate-400">
-                                  ID: {serial.id}
+                                  {serial.productName} • Order Item: {serial.orderItemId}
                                 </div>
                               </div>
                             </label>
@@ -956,68 +721,23 @@ const WarrantyRegistration = () => {
                     ) : (
                       <div className="text-center py-8 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                         <div className="text-orange-600 dark:text-orange-400 text-sm">
-                          ⚠️ Không có serial nào đã bán cho sản phẩm này
+                          ⚠️ Không có serial nào đã phân bổ cho sản phẩm này
                         </div>
                         <div className="text-xs text-orange-500 dark:text-orange-500 mt-1">
-                          Chỉ có thể đăng ký bảo hành cho sản phẩm đã bán
+                          Chỉ có thể đăng ký bảo hành cho sản phẩm đã phân bổ
                         </div>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Manual Serial Input (fallback) */}
-                {!formData.productId && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-medium text-slate-900 dark:text-white">
-                      Nhập serial thủ công:
-                    </h4>
-                    {formData.serialNumbers.map((serial, index) => (
-                      <div key={index} className="flex gap-3 items-start">
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            value={serial}
-                            onChange={(e) => handleSerialChange(index, e.target.value)}
-                            className={`w-full px-4 py-3 rounded-lg border transition-colors duration-300 ${
-                              errors.serialNumbers
-                                ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
-                                : 'border-slate-300 dark:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
-                            } bg-white dark:bg-slate-700 text-slate-900 dark:text-white`}
-                            placeholder={`Nhập số serial ${index + 1}`}
-                            disabled={isSubmitting}
-                          />
-                        </div>
-                        {formData.serialNumbers.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeSerialField(index)}
-                            className="mt-3 text-red-500 hover:text-red-700 transition-colors"
-                            disabled={isSubmitting}
-                            title="Xóa serial này"
-                          >
-                            ❌
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addSerialField}
-                      className="text-sm bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
-                      disabled={isSubmitting}
-                    >
-                      ➕ Thêm serial
-                    </button>
-                  </div>
-                )}
 
                 {errors.serialNumbers && (
                   <span className="text-red-500 text-sm block">{errors.serialNumbers}</span>
                 )}
 
                 <div className="text-sm text-slate-500 dark:text-slate-400">
-                  💡 <strong>Gợi ý:</strong> {formData.productId ? 'Chọn serial từ danh sách đã bán' : 'Chọn sản phẩm để xem serial đã bán'}
+                  💡 <strong>Gợi ý:</strong> Chọn sản phẩm để xem serial đã phân bổ cho dealer
                 </div>
               </div>
 

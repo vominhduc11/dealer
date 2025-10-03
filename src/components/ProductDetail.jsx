@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCart } from '../context/CartContext'
 import { getDealerInfo } from '../services/api'
+import { UI_CONSTANTS, ERROR_MESSAGES, SUCCESS_MESSAGES, TAB_NAMES, CSS_CLASSES, DEFAULTS } from '../constants'
 import './ProductDetail.css'
 
 const ProductDetail = ({ product, onBack, onAddToCart }) => {
@@ -22,7 +23,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
         const parsed = JSON.parse(imageData)
         return parsed.imageUrl || null
       } catch (error) {
-        console.warn('Failed to parse image JSON:', error)
+        console.error('Failed to parse image JSON:', error)
         return null
       }
     }
@@ -35,7 +36,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
     }
     return 1
   })
-  const [activeTab, setActiveTab] = useState('description')
+  const [activeTab, setActiveTab] = useState(TAB_NAMES.DESCRIPTION)
   const [showNotification, setShowNotification] = useState(false)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
   const [quoteFormData, setQuoteFormData] = useState({
@@ -50,7 +51,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
     return (
         <div className="pt-[70px] xl:pt-[80px] 2xl:pt-[90px] 3xl:pt-[100px] 4xl:pt-[120px] 5xl:pt-[140px] pb-20 md:pb-5 max-w-screen-5xl mx-auto px-4 sm:px-5 md:px-6 lg:px-8 xl:px-10 2xl:px-12 3xl:px-16 4xl:px-20 5xl:px-24">
         <div className="error-message">
-          <p>Không tìm thấy thông tin sản phẩm</p>
+          <p>{ERROR_MESSAGES.PRODUCT_NOT_FOUND}</p>
           <button className="btn btn-primary" onClick={onBack}>
             Quay lại danh sách
           </button>
@@ -92,46 +93,33 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   }
 
   const getCurrentPrice = () => {
-    console.log('🔍 getCurrentPrice DEBUG:')
-    console.log('product?.wholesalePrice:', product?.wholesalePrice)
-    console.log('selectedTier:', selectedTier)
-    console.log('product?.price:', product?.price)
-
     // If no wholesale pricing, return original price
     if (!product?.wholesalePrice) {
-      console.log('❌ No wholesale pricing, returning original price:', product?.price)
       return product?.price || 0
     }
 
     // Parse wholesale price if it's a string
     let wholesalePrices = product.wholesalePrice
     if (typeof wholesalePrices === 'string') {
-      console.log('📝 Parsing string wholesalePrice:', wholesalePrices)
       try {
         wholesalePrices = JSON.parse(wholesalePrices)
-        console.log('✅ Parsed successfully:', wholesalePrices)
-      } catch (e) {
-        console.log('❌ Parse failed, returning original price:', product?.price)
+      } catch {
         return product?.price || 0
       }
     }
 
     // Validate wholesale prices array
     if (!Array.isArray(wholesalePrices) || wholesalePrices.length === 0) {
-      console.log('❌ Invalid array, returning original price:', product?.price)
       return product?.price || 0
     }
 
     // Get selected tier data
     const tierData = wholesalePrices[selectedTier]
-    console.log('🎯 tierData for selectedTier', selectedTier, ':', tierData)
 
     if (!tierData || typeof tierData.price !== 'number') {
-      console.log('❌ Invalid tierData or price, returning original price:', product?.price)
       return product?.price || 0
     }
 
-    console.log('✅ Returning wholesale price:', tierData.price)
     return tierData.price
   }
 
@@ -150,7 +138,8 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   const handleQuoteSubmit = async (e) => {
     e.preventDefault()
 
-    const quoteData = {
+    // Quote data structure for API submission
+    const _quoteData = {
       product: {
         id: product.id,
         name: product.name,
@@ -183,7 +172,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
 
       setTimeout(() => {
         setShowNotification(false)
-      }, 5000)
+      }, UI_CONSTANTS.QUOTE_NOTIFICATION_TIMEOUT)
     } catch (error) {
       console.error('Error submitting quote:', error)
       // Handle error
@@ -191,36 +180,26 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
   }
 
   const handleAddToCart = async () => {
-    console.log('🚀 handleAddToCart CALLED')
     try {
       // Pass the current unit price based on selected tier
       const unitPrice = getCurrentPrice()
-      console.log('💰 unitPrice from getCurrentPrice():', unitPrice)
 
       // Get dealer info using utility function
       const dealerInfo = getDealerInfo()
 
-      const cartBody = {
+      // Cart body structure for API submission
+      const _cartBody = {
         dealerId: dealerInfo?.accountId || "UNKNOWN_DEALER",
         productId: product.id,
         quantity: quantity,
         unitPrice: unitPrice
       }
 
-      console.log('🛒 === BODY THÊM VÀO GIỎ HÀNG ===')
-      console.log('Body:', cartBody)
-      console.log('Giá gốc:', product.price)
-      console.log('Giá sỉ (unitPrice):', unitPrice)
-      console.log('Tier:', selectedTier)
-      console.log('unitPrice type:', typeof unitPrice)
-      console.log('============================')
-
-      console.log('📞 Calling onAddToCart with:', {product: product.id, quantity, unitPrice})
       await onAddToCart(product, quantity, unitPrice)
       setShowNotification(true)
       setTimeout(() => {
         setShowNotification(false)
-      }, 3000)
+      }, UI_CONSTANTS.NOTIFICATION_TIMEOUT)
     } catch (error) {
       console.error('Failed to add to cart:', error)
     }
@@ -230,7 +209,7 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
     if (!url) return null
 
     // Extract video ID from various YouTube URL formats
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+    const regex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     const match = url.match(regex)
 
     if (match && match[1]) {
@@ -428,10 +407,6 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                 <button
                   className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                   onClick={(e) => {
-                    console.log('🔴 BUTTON CLICKED!')
-                    console.log('Event:', e)
-                    console.log('cartLoading:', cartLoading)
-                    console.log('Button disabled?', cartLoading)
                     e.preventDefault()
                     handleAddToCart()
                   }}
@@ -528,6 +503,35 @@ const ProductDetail = ({ product, onBack, onAddToCart }) => {
                           />
                         </div>
                       ) : null
+                    } else if (desc.type === 'video') {
+                      const videoUrl = desc.videoUrl || desc.link?.url || desc.url
+                      if (!videoUrl) return null
+
+                      const embedUrl = getYouTubeEmbedUrl(videoUrl)
+                      return (
+                        <div key={`desc-video-${index}`} className="my-4 bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                          {desc.title && (
+                            <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                              {desc.title}
+                            </h5>
+                          )}
+                          {desc.text && (
+                            <p className="text-slate-600 dark:text-slate-400 mb-3 text-sm">
+                              {desc.text}
+                            </p>
+                          )}
+                          <div className="rounded-lg overflow-hidden">
+                            <iframe
+                              src={embedUrl}
+                              title={desc.title || 'Video mô tả sản phẩm'}
+                              className="w-full h-64 md:h-80"
+                              frameBorder="0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          </div>
+                        </div>
+                      )
                     } else if (desc.type === 'description') {
                       return (
                         <div

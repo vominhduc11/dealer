@@ -1,7 +1,4 @@
-import { useNavigate } from 'react-router-dom'
-
 const ProductDetailHeader = ({ product, onBack }) => {
-  const navigate = useNavigate()
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', {

@@ -56,15 +56,35 @@ const OrdersPage = () => {
     }
 
     try {
-      const productInfo = await productsAPI.getBasicInfo(productId, 'name,image')
+      const response = await productsAPI.getBasicInfo(productId, 'name,image,sku')
+      const productInfo = response.data || response
+
+      // Parse image JSON string to get imageUrl
+      let imageUrl = null
+      if (productInfo.image) {
+        try {
+          const imageData = JSON.parse(productInfo.image)
+          imageUrl = imageData.imageUrl
+        } catch {
+          // If not JSON, use as direct URL
+          imageUrl = productInfo.image
+        }
+      }
+
+      const processedInfo = {
+        name: productInfo.name,
+        sku: productInfo.sku,
+        image: imageUrl
+      }
+
       setProductInfoCache(prev => ({
         ...prev,
-        [productId]: productInfo
+        [productId]: processedInfo
       }))
-      return productInfo
+      return processedInfo
     } catch (error) {
       console.error(`Failed to fetch product info for ID ${productId}:`, error)
-      return { name: `Sản phẩm ${productId}`, image: null }
+      return { name: `Sản phẩm ${productId}`, image: null, sku: '' }
     }
   }
 
@@ -74,31 +94,24 @@ const OrdersPage = () => {
       setError(null)
 
       const params = {
-        page,
-        limit: 100 // Get more data to filter client-side
+        includeDeleted: true
       }
 
-      const response = await ordersAPI.getAll(params)
+      // Add status filter to API params if not 'all'
+      if (status !== 'all') {
+        params.status = status
+      }
+
+      // Use specific dealer endpoint with server-side filtering
+      const response = await ordersAPI.getByDealer(dealerInfo?.accountId, params)
 
       if (response.success && response.data) {
-        // Filter by dealer and payment status
-        let filteredOrders = response.data.filter(order =>
-          order.idDealer === dealerInfo?.accountId
-        )
-
-        // Filter by payment status if not 'all'
-        if (status !== 'all') {
-          filteredOrders = filteredOrders.filter(order =>
-            order.paymentStatus === status
-          )
-        }
-
-        setOrders(filteredOrders)
-        setTotalPages(Math.ceil(filteredOrders.length / 10))
+        setOrders(response.data)
+        setTotalPages(Math.ceil(response.data.length / 10))
         setCurrentPage(page)
 
         // Fetch product info for all order items
-        for (const order of filteredOrders) {
+        for (const order of response.data) {
           if (order.orderItems && order.orderItems.length > 0) {
             for (const item of order.orderItems) {
               if (item.idProduct && !productInfoCache[item.idProduct]) {
@@ -257,7 +270,7 @@ const OrdersPage = () => {
                     <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
                       <div className="flex items-center gap-2">
                         <span>📅 Đặt ngày:</span>
-                        <span>{formatDate(order.createAt)}</span>
+                        <span>{formatDate(order.createdAt)}</span>
                       </div>
 
                       {order.orderItems && order.orderItems.length > 0 && (

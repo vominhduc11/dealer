@@ -37,7 +37,7 @@ const ProductDetailTabs = ({ product }) => {
     if (!url) return null
 
     // Extract video ID from various YouTube URL formats
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
+    const regex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     const match = url.match(regex)
 
     if (match && match[1]) {

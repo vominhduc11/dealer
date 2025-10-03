@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ordersAPI, productsAPI, handleAPIError } from '../services/api'
+import Modal from 'react-modal'
+import { ordersAPI, productsAPI, dealerAPI, handleAPIError } from '../services/api'
 import { LoadingSpinner } from './LoadingStates'
 
 const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
@@ -7,6 +8,7 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [productInfoCache, setProductInfoCache] = useState({})
+  const [dealerInfo, setDealerInfo] = useState(null)
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -46,15 +48,46 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
     }
 
     try {
-      const productInfo = await productsAPI.getBasicInfo(productId, 'name,image,sku')
+      const response = await productsAPI.getBasicInfo(productId, 'name,image,sku')
+      const productInfo = response.data || response
+
+      // Parse image JSON string to get imageUrl
+      let imageUrl = null
+      if (productInfo.image) {
+        try {
+          const imageData = JSON.parse(productInfo.image)
+          imageUrl = imageData.imageUrl
+        } catch {
+          // If not JSON, use as direct URL
+          imageUrl = productInfo.image
+        }
+      }
+
+      const processedInfo = {
+        name: productInfo.name,
+        sku: productInfo.sku,
+        image: imageUrl
+      }
+
       setProductInfoCache(prev => ({
         ...prev,
-        [productId]: productInfo
+        [productId]: processedInfo
       }))
-      return productInfo
+      return processedInfo
     } catch (error) {
       console.error(`Failed to fetch product info for ID ${productId}:`, error)
       return { name: `Sản phẩm ${productId}`, image: null, sku: '' }
+    }
+  }
+
+  const fetchDealerInfo = async (dealerId) => {
+    try {
+      const response = await dealerAPI.getById(dealerId, 'companyName')
+      if (response.success && response.data) {
+        setDealerInfo(response.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch dealer info:', error)
     }
   }
 
@@ -69,6 +102,11 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
 
       if (response.success && response.data) {
         setOrderDetail(response.data)
+
+        // Fetch dealer info
+        if (response.data.idDealer) {
+          fetchDealerInfo(response.data.idDealer)
+        }
 
         // Fetch product info for all order items
         if (response.data.orderItems && response.data.orderItems.length > 0) {
@@ -98,11 +136,64 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
     }
   }, [isOpen, orderId])
 
-  if (!isOpen) return null
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      // Save current overflow styles
+      const originalBodyOverflow = window.getComputedStyle(document.body).overflow
+      const originalHtmlOverflow = window.getComputedStyle(document.documentElement).overflow
+
+      // Disable scroll for both html and body
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+
+      // Cleanup function to restore original overflow
+      return () => {
+        document.body.style.overflow = originalBodyOverflow
+        document.documentElement.style.overflow = originalHtmlOverflow
+      }
+    }
+  }, [isOpen])
+
+  const modalStyles = {
+    overlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      zIndex: 1000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem'
+    },
+    content: {
+      position: 'relative',
+      inset: 'auto',
+      border: 'none',
+      background: 'transparent',
+      overflow: 'visible',
+      borderRadius: 0,
+      outline: 'none',
+      padding: 0,
+      maxWidth: '56rem',
+      width: '100%',
+      maxHeight: '90vh'
+    }
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      style={modalStyles}
+      shouldCloseOnOverlayClick={true}
+      shouldCloseOnEsc={true}
+      ariaHideApp={true}
+    >
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-h-[90vh] overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
@@ -152,11 +243,11 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
                     <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">📅 Ngày đặt:</span>
-                        <span>{formatDate(orderDetail.createAt)}</span>
+                        <span>{formatDate(orderDetail.createdAt)}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">🏢 Dealer ID:</span>
-                        <span>{orderDetail.idDealer}</span>
+                        <span className="font-medium">🏢 Công ty:</span>
+                        <span>{dealerInfo?.companyName || 'Đang tải...'}</span>
                       </div>
                     </div>
                   </div>
@@ -210,9 +301,6 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
                                 SKU: {productInfo.sku}
                               </p>
                             )}
-                            <p className="text-sm text-slate-600 dark:text-slate-400">
-                              ID: {item.idProduct}
-                            </p>
                           </div>
 
                           {/* Quantity & Price */}
@@ -279,7 +367,7 @@ const OrderDetailModal = ({ isOpen, onClose, orderId }) => {
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
