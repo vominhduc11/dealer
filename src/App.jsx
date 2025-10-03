@@ -8,9 +8,6 @@ import DashboardLayout from './components/DashboardLayout'
 const ProductsPage = lazy(() => import('./pages/ProductsPage'))
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
 const CartPage = lazy(() => import('./pages/CartPage'))
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
-const PaymentCompletePage = lazy(() => import('./pages/PaymentCompletePage'))
-const QRPaymentPage = lazy(() => import('./pages/QRPaymentPage'))
 const WarrantyPage = lazy(() => import('./pages/WarrantyPage'))
 const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'))
 const OrdersPage = lazy(() => import('./pages/OrdersPage'))
@@ -95,21 +92,6 @@ function App() {
                   <Route path="cart" element={
                     <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
                       <CartPage />
-                    </Suspense>
-                  } />
-                  <Route path="checkout" element={
-                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                      <CheckoutPage />
-                    </Suspense>
-                  } />
-                  <Route path="payment-complete" element={
-                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                      <PaymentCompletePage />
-                    </Suspense>
-                  } />
-                  <Route path="qr-payment" element={
-                    <Suspense fallback={<div className="flex justify-center items-center py-20"><div className="text-lg">Loading...</div></div>}>
-                      <QRPaymentPage />
                     </Suspense>
                   } />
                   <Route path="warranty" element={

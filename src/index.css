@@ -1,8 +1,5 @@
 /* Import remaining CSS for components not yet converted */
-@import './components/Checkout.css';
-@import './components/PaymentComplete.css';
 @import './components/ProductDetail.css';
-@import './components/QRPayment.css';
 @import './components/WarrantyRegistration.css';
 
 @tailwind base;
